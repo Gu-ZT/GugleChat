@@ -1,6 +1,7 @@
 package dev.dubhe.gugle.chat.message.service;
 
 import dev.dubhe.gugle.chat.auth.model.UserMapper;
+import dev.dubhe.gugle.chat.channel.service.ChannelService;
 import dev.dubhe.gugle.chat.common.enums.MessageType;
 import dev.dubhe.gugle.chat.common.exception.BusinessException;
 import dev.dubhe.gugle.chat.message.dto.MessageResponse;
@@ -18,13 +19,17 @@ public class MessageService {
     private static final int PAGE_SIZE = 50;
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
+    private final ChannelService channelService;
 
-    public MessageService(MessageMapper messageMapper, UserMapper userMapper) {
+    public MessageService(MessageMapper messageMapper, UserMapper userMapper,
+                          ChannelService channelService) {
         this.messageMapper = messageMapper;
         this.userMapper = userMapper;
+        this.channelService = channelService;
     }
 
     public MessageResponse sendMessage(Long channelId, Long userId, SendMessageRequest req) {
+        channelService.ensureMember(channelId, userId); // auto-join
         MessageType type = req.getType() != null ? req.getType() : MessageType.TEXT;
         Message msg = new Message(channelId, userId, req.getContent(), type);
         msg.setCreatedAt(LocalDateTime.now());
@@ -32,7 +37,8 @@ public class MessageService {
         return MessageResponse.from(msg, getUsername(userId));
     }
 
-    public List<MessageResponse> getHistory(Long channelId, Long beforeId) {
+    public List<MessageResponse> getHistory(Long channelId, Long userId, Long beforeId) {
+        channelService.ensureMember(channelId, userId); // auto-join
         List<Message> messages = beforeId != null
                 ? messageMapper.findByChannelIdBefore(channelId, beforeId, PAGE_SIZE)
                 : messageMapper.findByChannelId(channelId, PAGE_SIZE);

@@ -11,10 +11,15 @@ public class ChannelResponse {
     private ChannelType type;
     private Long createdBy;
     private int memberCount;
+    private boolean joined;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static ChannelResponse from(Channel c, int memberCount) {
+        return from(c, memberCount, false);
+    }
+
+    public static ChannelResponse from(Channel c, int memberCount, boolean joined) {
         ChannelResponse r = new ChannelResponse();
         r.id = c.getId();
         r.name = c.getName();
@@ -22,6 +27,7 @@ public class ChannelResponse {
         r.type = c.getType();
         r.createdBy = c.getCreatedBy();
         r.memberCount = memberCount;
+        r.joined = joined;
         r.createdAt = c.getCreatedAt();
         r.updatedAt = c.getUpdatedAt();
         return r;
@@ -33,6 +39,7 @@ public class ChannelResponse {
     public ChannelType getType() { return type; }
     public Long getCreatedBy() { return createdBy; }
     public int getMemberCount() { return memberCount; }
+    public boolean isJoined() { return joined; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

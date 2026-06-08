@@ -4,6 +4,7 @@ import dev.dubhe.gugle.chat.common.dto.ApiResponse;
 import dev.dubhe.gugle.chat.message.dto.MessageResponse;
 import dev.dubhe.gugle.chat.message.service.MessageService;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
@@ -18,8 +19,9 @@ public class MessageController {
 
     @GetMapping("/channels/{channelId}/messages")
     public ApiResponse<List<MessageResponse>> getHistory(@PathVariable Long channelId,
-                                                          @RequestParam(required = false) Long before) {
-        return ApiResponse.ok(messageService.getHistory(channelId, before));
+                                                          @RequestParam(required = false) Long before,
+                                                          Authentication auth) {
+        return ApiResponse.ok(messageService.getHistory(channelId, (Long) auth.getPrincipal(), before));
     }
 
     @PutMapping("/messages/{messageId}")

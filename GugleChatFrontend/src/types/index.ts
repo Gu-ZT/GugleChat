@@ -7,7 +7,8 @@ export interface AuthResponse {
 export type ChannelType = 'TEXT' | 'VOICE'
 export interface Channel {
   id: number; name: string; description: string | null; type: ChannelType;
-  createdBy: number; memberCount: number; createdAt: string; updatedAt: string;
+  createdBy: number; memberCount: number; joined: boolean;
+  createdAt: string; updatedAt: string;
 }
 export interface ChannelMember {
   id: number; userId: number; role: 'OWNER' | 'ADMIN' | 'MEMBER'; joinedAt: string;

@@ -22,14 +22,25 @@ public class ChannelService {
         this.memberMapper = memberMapper;
     }
 
-    public List<ChannelResponse> getUserChannels(Long userId) {
-        return channelMapper.findChannelsByUserId(userId).stream()
+    public List<ChannelResponse> getAllChannels(Long userId) {
+        List<Channel> all = channelMapper.selectList(null);
+        return all.stream()
                 .map(c -> {
                     long count = memberMapper.selectCount(
                             new LambdaQueryWrapper<ChannelMember>().eq(ChannelMember::getChannelId, c.getId()));
-                    return ChannelResponse.from(c, (int) count);
+                    boolean joined = memberMapper.existsByChannelIdAndUserId(c.getId(), userId);
+                    return ChannelResponse.from(c, (int) count, joined);
                 })
                 .toList();
+    }
+
+    /** Auto-join a channel if not already a member */
+    public void ensureMember(Long channelId, Long userId) {
+        if (!memberMapper.existsByChannelIdAndUserId(channelId, userId)) {
+            ChannelMember m = new ChannelMember(channelId, userId, MemberRole.MEMBER);
+            m.setJoinedAt(LocalDateTime.now());
+            memberMapper.insert(m);
+        }
     }
 
     @Transactional
@@ -103,8 +114,4 @@ public class ChannelService {
         if (m.getRole() == MemberRole.MEMBER) throw new BusinessException(403, "Admin+ required");
     }
 
-    private void ensureMember(Long channelId, Long userId) {
-        if (!memberMapper.existsByChannelIdAndUserId(channelId, userId))
-            throw new BusinessException(403, "Not a member");
-    }
 }

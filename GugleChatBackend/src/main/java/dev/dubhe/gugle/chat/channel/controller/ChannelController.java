@@ -19,7 +19,7 @@ public class ChannelController {
 
     @GetMapping
     public ApiResponse<List<ChannelResponse>> list(Authentication auth) {
-        return ApiResponse.ok(channelService.getUserChannels((Long) auth.getPrincipal()));
+        return ApiResponse.ok(channelService.getAllChannels((Long) auth.getPrincipal()));
     }
 
     @PostMapping
