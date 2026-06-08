@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/main/packages/api/schema.json",
+  "productName": "GugleChat",
+  "version": "0.1.0",
+  "identifier": "dev.dubhe.gugle.chat",
+  "build": {
+    "frontendDist": "../GugleChatFrontend/dist",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "cd ../GugleChatFrontend && npm run dev",
+    "beforeBuildCommand": "cd ../GugleChatFrontend && npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "GugleChat",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' ws: wss: http: https:; media-src 'self' blob:; img-src 'self' data: http: https:"
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}
