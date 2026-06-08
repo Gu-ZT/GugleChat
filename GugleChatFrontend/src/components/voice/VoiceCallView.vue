@@ -16,9 +16,14 @@ function toggleFocus(uid: number) {
   focusedUserId.value = focusedUserId.value === uid ? null : uid
 }
 
+function hasVideo(uid: number): boolean {
+  if (uid === authStore.user?.id) return rtcStore.videoEnabled && !!rtcStore.localStream?.getVideoTracks().length
+  return (rtcStore.remotePeers[uid]?.stream?.getVideoTracks().length ?? 0) > 0
+}
 function getStream(uid: number): MediaStream | null {
-  if (uid === authStore.user?.id) return rtcStore.localStream
-  return rtcStore.remotePeers[uid]?.stream || null
+  if (uid === authStore.user?.id) return rtcStore.videoEnabled ? rtcStore.localStream : null
+  const s = rtcStore.remotePeers[uid]?.stream
+  return s?.getVideoTracks().length ? s : null
 }
 </script>
 
@@ -43,7 +48,7 @@ function getStream(uid: number): MediaStream | null {
     <!-- Cards grid -->
     <div v-if="focusedUserId === null" class="vc-participants">
       <div v-for="u in rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0)" :key="u.userId"
-           class="vc-card" @dblclick="toggleFocus(u.userId)">
+           class="vc-card" :class="{ 'has-video': hasVideo(u.userId) }" @dblclick="hasVideo(u.userId) && toggleFocus(u.userId)">
         <!-- Self video preview -->
         <div v-if="u.userId === authStore.user?.id && rtcStore.videoEnabled && rtcStore.localStream"
              class="vc-video-preview">
@@ -54,8 +59,8 @@ function getStream(uid: number): MediaStream | null {
              :style="{ background: avatarColor(u.userId) }">
           {{ u.username?.charAt(0).toUpperCase() }}
         </div>
-        <!-- Remote video preview -->
-        <div v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]?.stream"
+        <!-- Remote video preview (only if stream has video tracks) -->
+        <div v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]?.stream?.getVideoTracks().length"
              class="vc-video-preview">
           <video autoplay playsinline :srcObject="rtcStore.remotePeers[u.userId].stream" />
         </div>
