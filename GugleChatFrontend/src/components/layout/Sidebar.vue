@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
-import { IconPlus, IconNotification, IconSettings, IconClose, IconUser, IconMessage } from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconNotification, IconSettings, IconClose, IconUser, IconMessage, IconVideoCamera, IconPhone } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
@@ -123,14 +123,31 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         <span class="vcp-text">Voice Connected</span>
       </div>
       <div class="vcp-actions">
+        <a-checkbox :model-value="rtcStore.monitoring"
+                    @change="rtcStore.setMonitoring(!rtcStore.monitoring)" title="Hear yourself" />
+        <a-popover trigger="hover" position="top">
+          <a-button type="text" size="mini"
+                    :status="!rtcStore.audioEnabled ? 'danger' : undefined"
+                    @click="rtcStore.toggleAudio">
+            <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
+          </a-button>
+          <template #content>
+            <div class="device-list">
+              <div class="device-title">Audio Input</div>
+              <div v-for="d in rtcStore.audioInputs" :key="d.deviceId"
+                   class="device-item"
+                   :class="{ active: d.deviceId === rtcStore.currentAudioDevice }"
+                   @click="rtcStore.switchAudioDevice(d.deviceId)">{{ d.label }}</div>
+            </div>
+          </template>
+        </a-popover>
         <a-button type="text" size="mini"
-                  :status="!rtcStore.audioEnabled ? 'danger' : undefined"
-                  @click="rtcStore.toggleAudio">
-          <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
+                  :class="{ active: rtcStore.videoEnabled }"
+                  @click="rtcStore.toggleVideo">
+          <template #icon><IconVideoCamera /></template>
         </a-button>
-        <a-button type="text" size="mini" status="danger"
-                  @click="rtcStore.endCall()">
-          <template #icon><IconClose /></template>
+        <a-button type="text" size="mini" status="danger" @click="rtcStore.endCall()">
+          <template #icon><IconPhone /></template>
         </a-button>
       </div>
     </div>
@@ -228,6 +245,14 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .vcp-actions { display: flex; gap: 2px; }
 .vcp-actions :deep(.arco-btn-text) { color: #b5bac1; }
 .vcp-actions :deep(.arco-btn-text:hover) { color: #dbdee1; background: #35373c; }
+.vcp-actions :deep(.arco-btn-text.active) { color: #22c55e; }
+.vcp-actions :deep(.arco-checkbox) { margin-top: 2px; }
+
+.device-list { min-width: 180px; }
+.device-title { font-size: 11px; color: #949ba4; font-weight: 600; text-transform: uppercase; padding: 4px 0 8px; }
+.device-item { font-size: 13px; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: #dbdee1; }
+.device-item:hover { background: #5865f2; color: #fff; }
+.device-item.active { color: #22c55e; }
 
 /* Bottom user panel */
 .user-panel {

@@ -17,7 +17,7 @@ const authStore = useAuthStore()
     <div class="vc-participants">
       <!-- Self -->
       <div class="vc-card self">
-        <div class="vc-avatar" :class="{ speaking: rtcStore.audioEnabled }">
+        <div class="vc-avatar" :class="{ speaking: rtcStore.speaking }">
           {{ authStore.user?.username?.charAt(0).toUpperCase() }}
         </div>
         <div class="vc-name">{{ authStore.user?.username }}</div>

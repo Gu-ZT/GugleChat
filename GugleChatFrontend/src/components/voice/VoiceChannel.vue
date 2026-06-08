@@ -3,7 +3,6 @@ import { onUnmounted } from 'vue'
 import { useRtcStore } from '@/stores/rtc'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useAuthStore } from '@/stores/auth'
-import { IconNotification, IconClose, IconVideoCamera, IconPhone } from '@arco-design/web-vue/es/icon'
 
 const rtcStore = useRtcStore()
 const wsStore = useWebSocketStore()
@@ -102,74 +101,6 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="rtcStore.activeRoomId" class="voice-panel">
-    <div class="vp-left">
-      <IconNotification class="vp-signal" />
-      <span class="vp-text">Voice Connected</span>
-      <span class="vp-divider">·</span>
-      <span class="vp-channel">Voice</span>
-    </div>
-    <div class="vp-center">
-      <div class="vp-user">
-        <div class="vp-avatar" :class="{ speaking: rtcStore.audioEnabled }">
-          {{ authStore.user?.username?.charAt(0).toUpperCase() }}
-        </div>
-      </div>
-      <div class="vp-user" v-for="(peer, uid) in rtcStore.remotePeers" :key="uid">
-        <div class="vp-avatar">{{ peer.username?.charAt(0).toUpperCase() }}</div>
-        <div v-if="peer.stream" class="vp-mini-video">
-          <video autoplay playsinline :srcObject="peer.stream" />
-        </div>
-      </div>
-    </div>
-    <div class="vp-right">
-      <a-button type="text" size="mini"
-                :status="!rtcStore.audioEnabled ? 'danger' : undefined"
-                @click="rtcStore.toggleAudio">
-        <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
-      </a-button>
-      <a-button type="text" size="mini"
-                :class="{ active: rtcStore.videoEnabled }"
-                @click="rtcStore.toggleVideo">
-        <template #icon><IconVideoCamera /></template>
-      </a-button>
-      <a-button type="text" size="mini" status="danger" @click="rtcStore.endCall">
-        <template #icon><IconPhone /></template>
-      </a-button>
-    </div>
-  </div>
+  <div v-if="false" />
 </template>
 
-<style scoped>
-.voice-panel {
-  position: fixed; bottom: 0; left: 240px; right: 0; z-index: 500;
-  background: #232428; border-bottom: 3px solid #22c55e;
-  padding: 8px 16px;
-  display: flex; align-items: center; gap: 16px;
-  height: 48px; box-shadow: 0 -1px 0 #1e1f22;
-}
-.vp-left { display: flex; align-items: center; gap: 6px; min-width: 200px; }
-.vp-signal { color: #22c55e; font-size: 16px; }
-.vp-text { color: #22c55e; font-size: 13px; font-weight: 600; }
-.vp-divider { color: #4e5058; font-size: 16px; font-weight: 700; }
-.vp-channel { color: #dbdee1; font-size: 13px; }
-
-.vp-center { display: flex; align-items: center; gap: 8px; flex: 1; }
-.vp-user { position: relative; }
-.vp-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: #313338; display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600; color: #dbdee1;
-}
-.vp-avatar.speaking { box-shadow: 0 0 0 2px #22c55e; }
-.vp-mini-video {
-  position: absolute; top: -60px; left: -4px;
-  width: 80px; height: 56px; border-radius: 4px; overflow: hidden;
-}
-.vp-mini-video video { width: 100%; height: 100%; object-fit: cover; }
-
-.vp-right { display: flex; gap: 2px; }
-.vp-right :deep(.arco-btn-text) { color: #b5bac1; }
-.vp-right :deep(.arco-btn-text:hover) { color: #dbdee1; background: #35373c; }
-.vp-right :deep(.arco-btn-text.active) { color: #22c55e; }
-</style>

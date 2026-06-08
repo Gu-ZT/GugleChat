@@ -43,8 +43,19 @@ export const useRtcStore = defineStore('rtc', () => {
         username: string
     }
 
+    interface AudioDevice {
+        deviceId: string
+        label: string
+    }
     const voiceUsers = ref<VoiceUser[]>([])
     const showVoiceChat = ref(false)
+    const speaking = ref(false)
+    const monitoring = ref(false)
+    const audioInputs = ref<AudioDevice[]>([])
+    const currentAudioDevice = ref('')
+    let audioCtx: AudioContext | null = null
+    let vadTimer: number | null = null
+    let monitorGain: GainNode | null = null
 
     function getIceServers(): RTCIceServer[] {
         const servers: RTCIceServer[] = [
@@ -169,11 +180,16 @@ export const useRtcStore = defineStore('rtc', () => {
         if (activeRoomId.value === roomId) return
         if (activeRoomId.value) endCall()
         activeRoomId.value = roomId
+        await enumerateAudioDevices()
         // Try to get audio (may fail without HTTPS/localhost)
         if (navigator.mediaDevices) {
             try {
-                localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: true})
+                const audioOpt = currentAudioDevice.value
+                    ? { deviceId: { exact: currentAudioDevice.value } } as MediaTrackConstraints
+                    : true
+                localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: audioOpt})
                 console.log('[RTC] microphone OK')
+                startVad()
             } catch (e: any) {
                 console.error('[RTC] microphone denied:', e.name, e.message)
             }
@@ -187,6 +203,7 @@ export const useRtcStore = defineStore('rtc', () => {
         Object.values(remotePeers.value).forEach(p => p.pc.close())
         remotePeers.value = {}
         voiceUsers.value = []
+        stopVad()
         if (localStream.value) {
             localStream.value.getTracks().forEach(t => t.stop())
             localStream.value = null
@@ -226,6 +243,92 @@ export const useRtcStore = defineStore('rtc', () => {
         localStream.value?.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
     }
 
+    async function enumerateAudioDevices() {
+        if (!navigator.mediaDevices) return
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices()
+            audioInputs.value = devices
+                .filter(d => d.kind === 'audioinput' && d.deviceId)
+                .map(d => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }))
+            if (!currentAudioDevice.value && audioInputs.value.length > 0) {
+                currentAudioDevice.value = audioInputs.value[0].deviceId
+            }
+        } catch {}
+    }
+
+    async function switchAudioDevice(deviceId: string) {
+        currentAudioDevice.value = deviceId
+        if (!activeRoomId.value) return
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: { exact: deviceId } },
+            })
+            const oldTrack = localStream.value?.getAudioTracks()[0]
+            if (oldTrack) {
+                oldTrack.stop()
+                newStream.getAudioTracks().forEach(track => {
+                    if (oldTrack) localStream.value?.removeTrack(oldTrack)
+                    localStream.value?.addTrack(track)
+                    Object.values(remotePeers.value).forEach(peer => {
+                        const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
+                        if (sender) sender.replaceTrack(track)
+                    })
+                })
+            }
+        } catch (e) {
+            console.error('[RTC] switch audio device failed:', e)
+        }
+    }
+
+    function setMonitoring(on: boolean) {
+        monitoring.value = on
+        if (on) {
+            startMonitor()
+        } else {
+            stopMonitor()
+        }
+    }
+
+    function startVad() {
+        if (!localStream.value || audioCtx) return
+        audioCtx = new AudioContext()
+        const source = audioCtx.createMediaStreamSource(localStream.value)
+        const analyser = audioCtx.createAnalyser()
+        analyser.fftSize = 256
+        source.connect(analyser)
+        const data = new Uint8Array(analyser.frequencyBinCount)
+        const tick = () => {
+            if (!audioCtx) return
+            analyser.getByteFrequencyData(data)
+            const avg = data.reduce((a, b) => a + b, 0) / data.length
+            speaking.value = avg > 30
+            vadTimer = requestAnimationFrame(tick)
+        }
+        tick()
+    }
+
+    function stopVad() {
+        if (vadTimer) { cancelAnimationFrame(vadTimer); vadTimer = null }
+        if (audioCtx) { audioCtx.close(); audioCtx = null }
+        monitorGain = null
+        speaking.value = false
+    }
+
+    function startMonitor() {
+        if (!audioCtx || !localStream.value) return
+        stopMonitor()
+        const source = audioCtx.createMediaStreamSource(localStream.value)
+        monitorGain = audioCtx.createGain()
+        monitorGain.gain.value = 1.0
+        source.connect(monitorGain)
+        monitorGain.connect(audioCtx.destination)
+    }
+
+    function stopMonitor() {
+        monitorGain?.disconnect()
+        monitorGain = null
+    }
+
     let sendSignaling: (type: string, payload: Record<string, unknown>) => void = () => {
     }
 
@@ -233,7 +336,8 @@ export const useRtcStore = defineStore('rtc', () => {
         localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
         setVoiceUsers,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
-        startCall, endCall, toggleVideo, toggleAudio,
+        startCall, endCall, toggleVideo, toggleAudio, speaking, monitoring, setMonitoring,
+        audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn
         },
