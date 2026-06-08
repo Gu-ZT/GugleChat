@@ -150,7 +150,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         wsManager = WebSocketManager(
             baseUrl = url.trimEnd('/'),
             token = t,
-            onMessage = { msg -> _messages.value = _messages.value + msg },
+            onMessage = { msg ->
+                if (msg.channelId == _currentChannel.value?.id) {
+                    _messages.value = _messages.value + msg
+                }
+            },
             onVoiceUsers = { _, _ -> }
         )
         wsManager?.connect()
