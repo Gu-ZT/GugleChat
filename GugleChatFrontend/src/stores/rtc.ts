@@ -17,9 +17,18 @@ export const useRtcStore = defineStore('rtc', () => {
   const voiceUsers = ref<Set<number>>(new Set())
   const showVoiceChat = ref(false)
 
-  const iceServers: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-  ]
+  function getIceServers(): RTCIceServer[] {
+    const servers: RTCIceServer[] = [
+      { urls: 'stun:stun.l.google.com:19302' },
+    ]
+    const turnUrl = localStorage.getItem('guglechat_turn_url')
+    const turnUser = localStorage.getItem('guglechat_turn_user')
+    const turnPass = localStorage.getItem('guglechat_turn_pass')
+    if (turnUrl && turnUser && turnPass) {
+      servers.push({ urls: turnUrl, username: turnUser, credential: turnPass })
+    }
+    return servers
+  }
 
   function setVoiceUsers(ids: number[]) {
     voiceUsers.value = new Set(ids)
@@ -43,7 +52,7 @@ export const useRtcStore = defineStore('rtc', () => {
   }
 
   function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection({ iceServers })
+    const pc = new RTCPeerConnection({ iceServers: getIceServers() })
     addRemotePeer(targetId, username, pc)
 
     pc.onicecandidate = (event) => {
@@ -69,7 +78,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
     videoEnabled.value = false
     audioEnabled.value = true
-    sendSignaling('rtc.join', { roomId })
+    sendSignaling('rtc.join/' + roomId, {})
   }
 
   function endCall() {
@@ -81,7 +90,7 @@ export const useRtcStore = defineStore('rtc', () => {
       localStream.value = null
     }
     if (activeRoomId.value) {
-      sendSignaling('rtc.leave', { roomId: activeRoomId.value })
+      sendSignaling('rtc.leave/' + activeRoomId.value, {})
     }
     activeRoomId.value = null
     videoEnabled.value = false
