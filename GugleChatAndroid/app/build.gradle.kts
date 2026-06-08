@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.image.coil)
     implementation(libs.coil)
     implementation(libs.ext.strikethrough)
+    implementation(libs.ext.tables)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

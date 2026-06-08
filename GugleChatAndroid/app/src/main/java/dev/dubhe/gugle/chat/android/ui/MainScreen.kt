@@ -44,6 +44,7 @@ import dev.dubhe.gugle.chat.android.data.Message
 import dev.dubhe.gugle.chat.android.viewmodel.ChatViewModel
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
+import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.image.coil.CoilImagesPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 import java.text.SimpleDateFormat
@@ -220,6 +221,7 @@ fun MessageBubble(msg: Message) {
         Markwon.builder(ctx)
             .usePlugin(CoilImagesPlugin.create(ctx))
             .usePlugin(LinkifyPlugin.create())
+            .usePlugin(TablePlugin.create(ctx))
             .usePlugin(StrikethroughPlugin.create())
             .build()
     }
