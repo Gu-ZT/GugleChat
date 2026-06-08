@@ -7,6 +7,7 @@ import dev.dubhe.gugle.chat.common.exception.BusinessException;
 import dev.dubhe.gugle.chat.message.dto.MessageResponse;
 import dev.dubhe.gugle.chat.message.dto.SendMessageRequest;
 import dev.dubhe.gugle.chat.message.model.Message;
+import dev.dubhe.gugle.chat.common.util.XssFilter;
 import dev.dubhe.gugle.chat.message.model.MessageMapper;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +32,8 @@ public class MessageService {
     public MessageResponse sendMessage(Long channelId, Long userId, SendMessageRequest req) {
         channelService.ensureMember(channelId, userId); // auto-join
         MessageType type = req.getType() != null ? req.getType() : MessageType.TEXT;
-        Message msg = new Message(channelId, userId, req.getContent(), type);
+        String safe = XssFilter.sanitize(req.getContent());
+        Message msg = new Message(channelId, userId, safe, type);
         msg.setCreatedAt(LocalDateTime.now());
         messageMapper.insert(msg);
         return MessageResponse.from(msg, getUsername(userId));
@@ -50,7 +52,7 @@ public class MessageService {
         if (msg == null) throw new BusinessException("Message not found");
         if (!msg.getUserId().equals(userId))
             throw new BusinessException(403, "Can only edit your own messages");
-        msg.setContent(newContent);
+        msg.setContent(XssFilter.sanitize(newContent));
         msg.setEditedAt(LocalDateTime.now());
         messageMapper.updateById(msg);
         return MessageResponse.from(msg, getUsername(userId));

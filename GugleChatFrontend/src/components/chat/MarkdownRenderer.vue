@@ -9,8 +9,20 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+function sanitize(html: string): string {
+  // Strip dangerous tags and event handlers
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<object[\s\S]*?<\/object>/gi, '')
+    .replace(/<embed[\s\S]*?>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/on\w+\s*=\s*[^\s>]+/gi, '')
+    .replace(/javascript\s*:/gi, '')
+}
+
 const md: MarkdownIt = new MarkdownIt({
-  html: true, linkify: true, typographer: true, breaks: true,
+  html: false, linkify: true, typographer: true, breaks: true,
   highlight(str: string, lang: string): string {
     if (lang && hljs.getLanguage(lang)) {
       try { return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>` } catch {}
@@ -35,7 +47,7 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return defaultLinkRender(tokens, idx, options, env, self)
 }
 
-const rendered = computed(() => md.render(props.content))
+const rendered = computed(() => sanitize(md.render(props.content)))
 </script>
 
 <template>
