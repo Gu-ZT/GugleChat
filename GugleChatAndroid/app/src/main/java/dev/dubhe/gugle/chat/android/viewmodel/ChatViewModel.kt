@@ -25,12 +25,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun buildApi(): ApiService {
-        val tok = prefs.getString("token", "") ?: ""
         val client = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .addInterceptor { chain ->
+                val t = prefs.getString("token", "") ?: ""
                 val req = chain.request().newBuilder()
-                    .header("Authorization", "Bearer $tok").build()
+                    .header("Authorization", "Bearer $t").build()
                 chain.proceed(req)
             }.build()
         return Retrofit.Builder()
@@ -107,8 +107,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val res = withContext(Dispatchers.IO) { api.getChannels().execute() }
-                if (res.isSuccessful && res.body()?.code == 200) _channels.value = res.body()!!.data
-            } catch (_: Exception) {}
+                if (res.isSuccessful && res.body()?.code == 200) {
+                    _channels.value = res.body()!!.data
+                    Log.d("GugleChat", "Loaded ${_channels.value.size} channels")
+                } else Log.e("GugleChat", "Channels failed: ${res.code()} ${res.body()?.message}")
+            } catch (e: Exception) { Log.e("GugleChat", "Channels error", e) }
         }
     }
 
@@ -123,8 +126,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val res = withContext(Dispatchers.IO) { api.getMessages(channelId, before).execute() }
-                if (res.isSuccessful && res.body()?.code == 200) _messages.value = res.body()!!.data.reversed()
-            } catch (_: Exception) {}
+                if (res.isSuccessful && res.body()?.code == 200) {
+                    _messages.value = res.body()!!.data.reversed()
+                }
+            } catch (e: Exception) { Log.e("GugleChat", "Messages error", e) }
         }
     }
 
