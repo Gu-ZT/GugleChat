@@ -35,8 +35,8 @@ function handleChannelClick(c: { id: number; type: ChannelType }) {
   if (c.type === 'VOICE') {
     if (clickTimer) {
       clearTimeout(clickTimer); clickTimer = null
-      rtcStore.startCall(c.id)
       wsStore.subscribeToChannel(c.id)
+      rtcStore.startCall(c.id)
       rtcStore.showVoiceChat = false
       return
     }
