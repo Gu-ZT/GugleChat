@@ -37,9 +37,11 @@ public class RoomService {
     public Set<Long> leaveRoom(Long userId) {
         Long roomId = userRooms.remove(userId);
         if (roomId != null && rooms.containsKey(roomId)) {
-            rooms.get(roomId).remove(userId);
-            if (rooms.get(roomId).isEmpty()) rooms.remove(roomId);
-            return new HashSet<>(rooms.get(roomId));
+            Set<Long> room = rooms.get(roomId);
+            room.remove(userId);
+            Set<Long> remaining = new HashSet<>(room);
+            if (room.isEmpty()) rooms.remove(roomId);
+            return remaining;
         }
         return Collections.emptySet();
     }

@@ -16,11 +16,8 @@ rtcStore.setSendSignaling((dest, payload) => wsStore.sendSignaling(dest, payload
 wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   const type = body.type as string
   if (type === 'room-users') {
-    const users = (body.users as number[]) || []
-    // Send offer to each existing user, but only if we have their username
-    for (const uid of users) {
-      await createOffer(uid, 'User' + uid)
-    }
+    // New user: just note existing users, WAIT for them to send offers
+    // (user-joined already notifies them to send offers to us)
   } else if (type === 'user-joined') {
     const uid = body.userId as number
     const uname = (body.username as string) || 'User' + uid
@@ -40,16 +37,20 @@ async function createOffer(targetId: number, username: string) {
   const pc = rtcStore.createPeerConnection(targetId, username)
   const offer = await pc.createOffer()
   await pc.setLocalDescription(offer)
-  wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer })
+  const myId = authStore.user?.id || 0
+  const myName = authStore.user?.username || 'Me'
+  wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: myName })
 }
 
 async function handleOffer(body: Record<string, unknown>) {
   const senderId = body.userId as number
-  const pc = rtcStore.createPeerConnection(senderId, 'User' + senderId)
+  const senderName = (body.username as string) || 'User' + senderId
+  const pc = rtcStore.createPeerConnection(senderId, senderName)
   await pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
   const answer = await pc.createAnswer()
   await pc.setLocalDescription(answer)
-  wsStore.sendSignaling('rtc.answer', { target: senderId, sdp: answer })
+  const myName = authStore.user?.username || 'Me'
+  wsStore.sendSignaling('rtc.answer', { target: senderId, sdp: answer, username: myName })
 }
 
 async function handleAnswer(body: Record<string, unknown>) {

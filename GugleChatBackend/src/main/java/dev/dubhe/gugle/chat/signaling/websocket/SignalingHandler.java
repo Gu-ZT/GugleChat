@@ -32,6 +32,7 @@ public class SignalingHandler {
         roomService.setUsername(userId, username);
 
         Set<Long> others = roomService.joinRoom(roomId, userId);
+        System.out.println("[RTC] User " + username + "(" + userId + ") joined room " + roomId + ", others: " + others);
 
         for (Long otherId : others) {
             messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
@@ -56,8 +57,10 @@ public class SignalingHandler {
     }
 
     private void broadcastVoiceUsers(Long roomId) {
+        var users = roomService.getRoomUsers(roomId);
+        System.out.println("[RTC] broadcast voice-users to /topic/channel." + roomId + " users=" + users);
         messagingTemplate.convertAndSend("/topic/channel." + roomId,
-                Map.of("type", "voice-users", "users", roomService.getRoomUsers(roomId)));
+                Map.of("type", "voice-users", "users", users));
     }
 
     @MessageMapping("/rtc.offer")
@@ -65,7 +68,8 @@ public class SignalingHandler {
         messagingTemplate.convertAndSendToUser(
                 payload.get("target").toString(), "/queue/rtc",
                 Map.of("type", "offer", "sdp", payload.get("sdp"),
-                       "userId", Long.parseLong(principal.getName())));
+                       "userId", Long.parseLong(principal.getName()),
+                       "username", payload.getOrDefault("username", "")));
     }
 
     @MessageMapping("/rtc.answer")
@@ -73,7 +77,8 @@ public class SignalingHandler {
         messagingTemplate.convertAndSendToUser(
                 payload.get("target").toString(), "/queue/rtc",
                 Map.of("type", "answer", "sdp", payload.get("sdp"),
-                       "userId", Long.parseLong(principal.getName())));
+                       "userId", Long.parseLong(principal.getName()),
+                       "username", payload.getOrDefault("username", "")));
     }
 
     @MessageMapping("/rtc.ice-candidate")
@@ -81,6 +86,7 @@ public class SignalingHandler {
         messagingTemplate.convertAndSendToUser(
                 payload.get("target").toString(), "/queue/rtc",
                 Map.of("type", "ice-candidate", "candidate", payload.get("candidate"),
-                       "userId", Long.parseLong(principal.getName())));
+                       "userId", Long.parseLong(principal.getName()),
+                       "username", payload.getOrDefault("username", "")));
     }
 }

@@ -32,6 +32,7 @@ export const useRtcStore = defineStore('rtc', () => {
   }
 
   function setVoiceUsers(users: VoiceUser[]) {
+    console.log('[RTC] setVoiceUsers:', users)
     voiceUsers.value = users || []
   }
 
@@ -70,12 +71,17 @@ export const useRtcStore = defineStore('rtc', () => {
   }
 
   async function startCall(roomId: number) {
+    // Already in this room — don't rejoin
+    if (activeRoomId.value === roomId) return
     if (activeRoomId.value) endCall()
     activeRoomId.value = roomId
-    try {
-      localStream.value = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-    } catch {
-      localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true })
+    // Try to get audio (may fail without HTTPS/localhost)
+    if (navigator.mediaDevices) {
+      try {
+        localStream.value = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+      } catch {
+        try { localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch {}
+      }
     }
     videoEnabled.value = false
     audioEnabled.value = true
