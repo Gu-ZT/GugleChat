@@ -11,8 +11,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function connect() {
     const token = localStorage.getItem('token')
     if (!token) return
+    const backend = localStorage.getItem('guglechat_backend_url') || ''
+    const wsBase = backend ? backend.replace(/^http/, 'ws') : `ws://${window.location.host}`
     client = new Client({
-      brokerURL: `ws://${window.location.host}/ws?token=${token}`,
+      brokerURL: `${wsBase}/ws?token=${token}`,
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
