@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
-import { useRtcStore } from '@/stores/rtc'
+import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
 import { IconPlus, IconNotification, IconSettings, IconClose, IconUser, IconMessage } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
@@ -106,8 +106,11 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
              class="voice-users-list">
           <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="voice-user-item">
-            <IconUser class="vu-icon" />
+            <span class="vu-dot" :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }" />
             <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}</span>
+            <span v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]" class="vu-state">
+              {{ connStateLabel(rtcStore.remotePeers[u.userId].iceState) }}
+            </span>
           </div>
         </div>
       </template>
@@ -205,7 +208,9 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .voice-user-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; color: #949ba4; }
 .vu-icon { font-size: 14px; }
 .vu-icon.speaking { color: #22c55e; }
+.vu-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .vu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vu-state { font-size: 10px; color: #949ba4; margin-left: auto; }
 
 .ch-chat-btn { opacity: 0; margin-left: auto; }
 .channel-item:hover .ch-chat-btn { opacity: 1; }

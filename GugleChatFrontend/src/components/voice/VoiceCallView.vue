@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRtcStore } from '@/stores/rtc'
+import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
 import { useAuthStore } from '@/stores/auth'
 import { IconUser, IconNotification } from '@arco-design/web-vue/es/icon'
 
@@ -31,7 +31,8 @@ const authStore = useAuthStore()
         </div>
         <div class="vc-name">{{ peer.username }}</div>
         <div class="vc-status">
-          <span class="vc-dot" /> Connected
+          <span class="vc-dot" :style="{ background: connStateColor(peer.iceState) }" />
+          {{ connStateLabel(peer.iceState) }}
         </div>
       </div>
 

@@ -7,6 +7,28 @@ export interface RemotePeer {
     stream: MediaStream | null
     pc: RTCPeerConnection
     iceBuffer: RTCIceCandidateInit[]
+    iceState: RTCIceConnectionState
+    connState: RTCPeerConnectionState
+}
+
+export function connStateLabel(state: string): string {
+    switch (state) {
+        case 'connected': case 'completed': return 'P2P connected'
+        case 'checking': return 'Connecting...'
+        case 'new': case 'connecting': return 'Signaling...'
+        case 'failed': return 'Connection failed'
+        case 'disconnected': return 'Disconnected'
+        default: return state
+    }
+}
+
+export function connStateColor(state: string): string {
+    switch (state) {
+        case 'connected': case 'completed': return '#22c55e'
+        case 'checking': case 'new': case 'connecting': return '#fbbf24'
+        case 'failed': case 'disconnected': return '#ef4444'
+        default: return '#888'
+    }
 }
 
 export const useRtcStore = defineStore('rtc', () => {
@@ -60,7 +82,10 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
-        remotePeers.value = {...remotePeers.value, [userId]: {userId, username, stream: null, pc, iceBuffer: []}}
+        remotePeers.value = {...remotePeers.value, [userId]: {
+            userId, username, stream: null, pc, iceBuffer: [],
+            iceState: 'new', connState: 'new',
+        }}
     }
 
     function setRemoteStream(userId: number, stream: MediaStream | null) {
@@ -92,6 +117,20 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         pc.ontrack = (event) => {
             setRemoteStream(targetId, event.streams[0])
+        }
+        pc.oniceconnectionstatechange = () => {
+            const peer = remotePeers.value[targetId]
+            if (peer) {
+                peer.iceState = pc.iceConnectionState
+                remotePeers.value = {...remotePeers.value}
+            }
+        }
+        pc.onconnectionstatechange = () => {
+            const peer = remotePeers.value[targetId]
+            if (peer) {
+                peer.connState = pc.connectionState
+                remotePeers.value = {...remotePeers.value}
+            }
         }
 
         // Add transceivers BEFORE creating offer to ensure consistent m-line order
