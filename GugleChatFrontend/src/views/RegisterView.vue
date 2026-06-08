@@ -46,7 +46,7 @@ async function handleRegister() {
 </template>
 
 <style scoped>
-.auth-container { display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); }
+.auth-container { display: flex; align-items: center; justify-content: center; height: 100vh; background: #313338; }
 .auth-card { width: 400px; max-width: 90vw; }
 .auth-title { font-size: 28px; margin: 0; }
 </style>
