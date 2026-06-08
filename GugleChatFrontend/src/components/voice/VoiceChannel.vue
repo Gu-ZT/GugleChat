@@ -110,13 +110,11 @@ onUnmounted(() => {
       <span class="vp-channel">Voice</span>
     </div>
     <div class="vp-center">
-      <!-- Self -->
       <div class="vp-user">
         <div class="vp-avatar" :class="{ speaking: rtcStore.audioEnabled }">
           {{ authStore.user?.username?.charAt(0).toUpperCase() }}
         </div>
       </div>
-      <!-- Remote peers -->
       <div class="vp-user" v-for="(peer, uid) in rtcStore.remotePeers" :key="uid">
         <div class="vp-avatar">{{ peer.username?.charAt(0).toUpperCase() }}</div>
         <div v-if="peer.stream" class="vp-mini-video">

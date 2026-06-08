@@ -115,7 +115,15 @@ export const useRtcStore = defineStore('rtc', () => {
             }
         }
         pc.ontrack = (event) => {
+            console.log(`[RTC] ontrack from ${username}:`, event.track.kind)
             setRemoteStream(targetId, event.streams[0])
+            // Play audio directly
+            const stream = event.streams[0]
+            if (stream) {
+                const audio = new Audio()
+                audio.srcObject = stream
+                audio.play().catch(() => {})
+            }
         }
         pc.oniceconnectionstatechange = () => {
             const peer = remotePeers.value[targetId]
@@ -140,6 +148,7 @@ export const useRtcStore = defineStore('rtc', () => {
         // Replace placeholder tracks with actual local tracks
         if (localStream.value) {
             const audioTrack = localStream.value.getAudioTracks()[0]
+            console.log(`[RTC] local audio track: ${audioTrack?.kind || 'none'}, enabled: ${audioTrack?.enabled}`)
             if (audioTrack) {
                 const sender = pc.getSenders().find(s => s.track?.kind === 'audio')
                 if (sender) sender.replaceTrack(audioTrack)
@@ -149,6 +158,8 @@ export const useRtcStore = defineStore('rtc', () => {
                 const sender = pc.getSenders().find(s => s.track?.kind === 'video')
                 if (sender) sender.replaceTrack(videoTrack)
             }
+        } else {
+            console.log('[RTC] no local stream — cannot send audio')
         }
         return pc
     }
@@ -162,11 +173,9 @@ export const useRtcStore = defineStore('rtc', () => {
         if (navigator.mediaDevices) {
             try {
                 localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: true})
-            } catch {
-                try {
-                    localStream.value = await navigator.mediaDevices.getUserMedia({audio: true})
-                } catch {
-                }
+                console.log('[RTC] microphone OK')
+            } catch (e: any) {
+                console.error('[RTC] microphone denied:', e.name, e.message)
             }
         }
         videoEnabled.value = false
