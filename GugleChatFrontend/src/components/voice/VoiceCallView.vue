@@ -54,15 +54,15 @@ function getStream(uid: number): MediaStream | null {
              class="vc-video-preview">
           <video autoplay muted playsinline :srcObject="rtcStore.localStream" :class="{ mirrored: !rtcStore.screenSharing }" />
         </div>
+        <!-- Remote video preview -->
+        <div v-else-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]?.stream?.getVideoTracks().length"
+             class="vc-video-preview">
+          <video autoplay playsinline :srcObject="rtcStore.remotePeers[u.userId].stream" />
+        </div>
         <div v-else class="vc-avatar"
              :class="{ speaking: u.userId === authStore.user?.id ? rtcStore.speaking : rtcStore.remoteSpeaking[u.userId] }"
              :style="{ background: avatarColor(u.userId) }">
           {{ u.username?.charAt(0).toUpperCase() }}
-        </div>
-        <!-- Remote video preview (only if stream has video tracks) -->
-        <div v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]?.stream?.getVideoTracks().length"
-             class="vc-video-preview">
-          <video autoplay playsinline :srcObject="rtcStore.remotePeers[u.userId].stream" />
         </div>
         <div class="vc-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (You)' : '' }}</div>
         <div class="vc-badges">
