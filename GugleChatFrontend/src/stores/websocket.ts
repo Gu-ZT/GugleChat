@@ -27,7 +27,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   function subscribeToChannel(channelId: number) {
-    if (!client?.connected) return
+    if (!client) return
     const msgStore = useMessageStore()
     client.subscribe(`/topic/channel.${channelId}`, (message) => {
       const body = JSON.parse(message.body)
@@ -37,16 +37,20 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   function sendMessage(channelId: number, content: string) {
-    if (!client?.connected) return
+    if (!client) return
     client.publish({
       destination: `/app/chat.send/${channelId}`,
       body: JSON.stringify({ content, type: 'TEXT' }),
     })
   }
 
+  function isConnected(): boolean {
+    return client?.connected ?? false
+  }
+
   function disconnect() {
     client?.deactivate(); client = null; connected.value = false
   }
 
-  return { connected, connect, subscribeToChannel, sendMessage, disconnect }
+  return { connected, connect, subscribeToChannel, sendMessage, disconnect, isConnected }
 })
