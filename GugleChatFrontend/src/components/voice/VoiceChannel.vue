@@ -45,8 +45,22 @@ async function createOffer(targetId: number, username: string) {
 async function handleOffer(body: Record<string, unknown>) {
   const senderId = body.userId as number
   const senderName = (body.username as string) || 'User' + senderId
-  const pc = rtcStore.createPeerConnection(senderId, senderName)
+  // Create bare PC — don't add tracks yet, let setRemoteDescription determine m-lines
+  const pc = new RTCPeerConnection({ iceServers: rtcStore.getIceServers?.() || [{ urls: 'stun:stun.l.google.com:19302' }] })
+  rtcStore.addRemotePeer(senderId, senderName, pc)
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      wsStore.sendSignaling('rtc.ice-candidate', { target: senderId, candidate: event.candidate })
+    }
+  }
+  pc.ontrack = (event) => { rtcStore.setRemoteStream(senderId, event.streams[0]) }
+
+  // Set remote description first to match offer's m-line order
   await pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
+  // Now add local tracks — they'll be matched to existing transceivers
+  if (rtcStore.localStream) {
+    rtcStore.localStream.getTracks().forEach(track => pc.addTrack(track, rtcStore.localStream!))
+  }
   const answer = await pc.createAnswer()
   await pc.setLocalDescription(answer)
   const myName = authStore.user?.username || 'Me'

@@ -1,142 +1,179 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import {defineStore} from 'pinia'
+import {ref} from 'vue'
 
 export interface RemotePeer {
-  userId: number
-  username: string
-  stream: MediaStream | null
-  pc: RTCPeerConnection
+    userId: number
+    username: string
+    stream: MediaStream | null
+    pc: RTCPeerConnection
 }
 
 export const useRtcStore = defineStore('rtc', () => {
-  const localStream = ref<MediaStream | null>(null)
-  const remotePeers = ref<Record<number, RemotePeer>>({})
-  const activeRoomId = ref<number | null>(null)
-  const videoEnabled = ref(false)
-  const audioEnabled = ref(true)
-  interface VoiceUser { userId: number; username: string }
-  const voiceUsers = ref<VoiceUser[]>([])
-  const showVoiceChat = ref(false)
+    const localStream = ref<MediaStream | null>(null)
+    const remotePeers = ref<Record<number, RemotePeer>>({})
+    const activeRoomId = ref<number | null>(null)
+    const videoEnabled = ref(false)
+    const audioEnabled = ref(true)
 
-  function getIceServers(): RTCIceServer[] {
-    const servers: RTCIceServer[] = [
-      { urls: 'stun:stun.l.google.com:19302' },
-    ]
-    const turnUrl = localStorage.getItem('guglechat_turn_url')
-    const turnUser = localStorage.getItem('guglechat_turn_user')
-    const turnPass = localStorage.getItem('guglechat_turn_pass')
-    if (turnUrl && turnUser && turnPass) {
-      servers.push({ urls: turnUrl, username: turnUser, credential: turnPass })
+    interface VoiceUser {
+        userId: number;
+        username: string
     }
-    return servers
-  }
 
-  function setVoiceUsers(users: VoiceUser[]) {
-    console.log('[RTC] setVoiceUsers:', users)
-    voiceUsers.value = users || []
-  }
+    const voiceUsers = ref<VoiceUser[]>([])
+    const showVoiceChat = ref(false)
 
-  function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
-    remotePeers.value = { ...remotePeers.value, [userId]: { userId, username, stream: null, pc } }
-  }
-
-  function setRemoteStream(userId: number, stream: MediaStream | null) {
-    const peer = remotePeers.value[userId]
-    if (peer) { peer.stream = stream; remotePeers.value = { ...remotePeers.value } }
-  }
-
-  function removeRemotePeer(userId: number) {
-    const peer = remotePeers.value[userId]
-    if (peer) {
-      peer.pc.close()
-      const next = { ...remotePeers.value }; delete next[userId]; remotePeers.value = next
+    function getIceServers(): RTCIceServer[] {
+        const servers: RTCIceServer[] = [
+            {urls: 'stun:stun.l.google.com:19302'},
+            {urls: 'stun:stun1.l.google.com:19302'},
+            {urls: 'stun:stun2.l.google.com:19302'},
+            {urls: 'stun:stun3.l.google.com:19302'},
+            {urls: 'stun:stun4.l.google.com:19302'},
+            {urls: 'stun:stun.cloudflare.com:3478'},
+            {urls: 'stun:stun.voipbuster.com:3478'},
+            {urls: 'stun:stun.sipnet.net:3478'},
+            {urls: 'stun:stun.ippi.fr:3478'},
+            {urls: 'stun:stun.voipstunt.com:3478'},
+            {urls: 'stun:stun.counterpath.net:3478'},
+            {urls: 'stun:stun.ekiga.net:3478'},
+            {urls: 'stun:stun.ideasip.com:3478'},
+            {urls: 'stun:stun.schlund.de:3478'},
+            {urls: 'stun:stun.voiparound.com:3478'},
+            {urls: 'stun:stun.voipbuster.com:3478'},
+            {urls: 'stun:stun.voipstunt.com:3478'},
+            {urls: 'stun:stun1.voiceeclipse.net:3478'},
+        ]
+        const turnUrl = localStorage.getItem('guglechat_turn_url')
+        const turnUser = localStorage.getItem('guglechat_turn_user')
+        const turnPass = localStorage.getItem('guglechat_turn_pass')
+        if (turnUrl && turnUser && turnPass) {
+            servers.push({urls: turnUrl, username: turnUser, credential: turnPass})
+        }
+        return servers
     }
-  }
 
-  function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection({ iceServers: getIceServers() })
-    addRemotePeer(targetId, username, pc)
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignaling('rtc.ice-candidate', { target: targetId, candidate: event.candidate })
-      }
+    function setVoiceUsers(users: VoiceUser[]) {
+        console.log('[RTC] setVoiceUsers:', users)
+        voiceUsers.value = users || []
     }
-    pc.ontrack = (event) => { setRemoteStream(targetId, event.streams[0]) }
 
-    if (localStream.value) {
-      localStream.value.getTracks().forEach(track => pc.addTrack(track, localStream.value!))
+    function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
+        remotePeers.value = {...remotePeers.value, [userId]: {userId, username, stream: null, pc}}
     }
-    return pc
-  }
 
-  async function startCall(roomId: number) {
-    // Already in this room — don't rejoin
-    if (activeRoomId.value === roomId) return
-    if (activeRoomId.value) endCall()
-    activeRoomId.value = roomId
-    // Try to get audio (may fail without HTTPS/localhost)
-    if (navigator.mediaDevices) {
-      try {
-        localStream.value = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-      } catch {
-        try { localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch {}
-      }
+    function setRemoteStream(userId: number, stream: MediaStream | null) {
+        const peer = remotePeers.value[userId]
+        if (peer) {
+            peer.stream = stream;
+            remotePeers.value = {...remotePeers.value}
+        }
     }
-    videoEnabled.value = false
-    audioEnabled.value = true
-    sendSignaling('rtc.join/' + roomId, {})
-  }
 
-  function endCall() {
-    Object.values(remotePeers.value).forEach(p => p.pc.close())
-    remotePeers.value = {}
-    voiceUsers.value = []
-    if (localStream.value) {
-      localStream.value.getTracks().forEach(t => t.stop())
-      localStream.value = null
+    function removeRemotePeer(userId: number) {
+        const peer = remotePeers.value[userId]
+        if (peer) {
+            peer.pc.close()
+            const next = {...remotePeers.value};
+            delete next[userId];
+            remotePeers.value = next
+        }
     }
-    if (activeRoomId.value) {
-      sendSignaling('rtc.leave/' + activeRoomId.value, {})
+
+    function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
+        const pc = new RTCPeerConnection({iceServers: getIceServers()})
+        addRemotePeer(targetId, username, pc)
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendSignaling('rtc.ice-candidate', {target: targetId, candidate: event.candidate})
+            }
+        }
+        pc.ontrack = (event) => {
+            setRemoteStream(targetId, event.streams[0])
+        }
+
+        if (localStream.value) {
+            localStream.value.getTracks().forEach(track => pc.addTrack(track, localStream.value!))
+        }
+        return pc
     }
-    activeRoomId.value = null
-    videoEnabled.value = false
-  }
 
-  async function toggleVideo() {
-    if (!videoEnabled.value) {
-      if (!localStream.value) return
-      try {
-        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        localStream.value.getTracks().forEach(t => t.stop())
-        localStream.value = newStream
-        videoEnabled.value = true
-        // Replace tracks on existing connections
-        const videoTrack = newStream.getVideoTracks()[0]
-        Object.values(remotePeers.value).forEach(peer => {
-          const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-          if (sender && videoTrack) sender.replaceTrack(videoTrack)
-          else if (videoTrack) peer.pc.addTrack(videoTrack, newStream)
-        })
-      } catch { /* camera denied */ }
-    } else {
-      localStream.value?.getVideoTracks().forEach(t => t.stop())
-      videoEnabled.value = false
+    async function startCall(roomId: number) {
+        // Already in this room — don't rejoin
+        if (activeRoomId.value === roomId) return
+        if (activeRoomId.value) endCall()
+        activeRoomId.value = roomId
+        // Try to get audio (may fail without HTTPS/localhost)
+        if (navigator.mediaDevices) {
+            try {
+                localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: true})
+            } catch {
+                try {
+                    localStream.value = await navigator.mediaDevices.getUserMedia({audio: true})
+                } catch {
+                }
+            }
+        }
+        videoEnabled.value = false
+        audioEnabled.value = true
+        sendSignaling('rtc.join/' + roomId, {})
     }
-  }
 
-  function toggleAudio() {
-    audioEnabled.value = !audioEnabled.value
-    localStream.value?.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
-  }
+    function endCall() {
+        Object.values(remotePeers.value).forEach(p => p.pc.close())
+        remotePeers.value = {}
+        voiceUsers.value = []
+        if (localStream.value) {
+            localStream.value.getTracks().forEach(t => t.stop())
+            localStream.value = null
+        }
+        if (activeRoomId.value) {
+            sendSignaling('rtc.leave/' + activeRoomId.value, {})
+        }
+        activeRoomId.value = null
+        videoEnabled.value = false
+    }
 
-  let sendSignaling: (type: string, payload: Record<string, unknown>) => void = () => {}
+    async function toggleVideo() {
+        if (!videoEnabled.value) {
+            if (!localStream.value) return
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true})
+                localStream.value.getTracks().forEach(t => t.stop())
+                localStream.value = newStream
+                videoEnabled.value = true
+                // Replace tracks on existing connections
+                const videoTrack = newStream.getVideoTracks()[0]
+                Object.values(remotePeers.value).forEach(peer => {
+                    const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+                    if (sender && videoTrack) sender.replaceTrack(videoTrack)
+                    else if (videoTrack) peer.pc.addTrack(videoTrack, newStream)
+                })
+            } catch { /* camera denied */
+            }
+        } else {
+            localStream.value?.getVideoTracks().forEach(t => t.stop())
+            videoEnabled.value = false
+        }
+    }
 
-  return {
-    localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
-    setVoiceUsers,
-    addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
-    startCall, endCall, toggleVideo, toggleAudio,
-    setSendSignaling: (fn: typeof sendSignaling) => { sendSignaling = fn },
-  }
+    function toggleAudio() {
+        audioEnabled.value = !audioEnabled.value
+        localStream.value?.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
+    }
+
+    let sendSignaling: (type: string, payload: Record<string, unknown>) => void = () => {
+    }
+
+    return {
+        localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
+        setVoiceUsers,
+        addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
+        startCall, endCall, toggleVideo, toggleAudio,
+        setSendSignaling: (fn: typeof sendSignaling) => {
+            sendSignaling = fn
+        },
+        getIceServers,
+    }
 })
