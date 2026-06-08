@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
+import { IconPlus, IconNotification, IconSettings, IconPoweroff } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
@@ -41,20 +42,21 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
     <div class="channel-section">
       <div class="section-header">
         <span>CHANNELS</span>
-        <a-button size="mini" @click="showCreate = true">+</a-button>
+        <a-button size="mini" @click="showCreate = true"><IconPlus /></a-button>
       </div>
       <div v-for="c in channelStore.channels" :key="c.id"
            class="channel-item" :class="{ active: c.id === channelStore.currentChannelId }"
            @click="selectChannel(c.id)">
-        <span class="ch-icon">{{ c.type === 'VOICE' ? '🔊' : '#' }}</span>
+        <IconNotification v-if="c.type === 'VOICE'" class="ch-icon" />
+        <span v-else class="ch-icon">#</span>
         <span class="ch-name">{{ c.name }}</span>
         <a-tag size="small" :color="c.type === 'VOICE' ? 'green' : 'arcoblue'">{{ c.type }}</a-tag>
       </div>
     </div>
 
     <div class="sidebar-footer">
-      <a-button type="text" size="small" @click="router.push('/settings')">Settings</a-button>
-      <a-button type="text" size="small" status="danger" @click="handleLogout">Logout</a-button>
+      <a-button type="text" size="small" @click="router.push('/settings')"><template #icon><IconSettings /></template></a-button>
+      <a-button type="text" size="small" status="danger" @click="handleLogout"><template #icon><IconPoweroff /></template></a-button>
     </div>
 
     <a-modal v-model:visible="showCreate" title="Create Channel" @ok="handleCreate"

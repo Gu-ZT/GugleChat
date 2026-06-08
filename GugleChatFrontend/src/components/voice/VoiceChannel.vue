@@ -3,6 +3,7 @@ import { watch, onUnmounted } from 'vue'
 import { useChannelStore } from '@/stores/channel'
 import { useRtcStore } from '@/stores/rtc'
 import { useWebSocketStore } from '@/stores/websocket'
+import { IconNotification, IconClose, IconVideoCamera, IconPhone } from '@arco-design/web-vue/es/icon'
 
 const channelStore = useChannelStore()
 const rtcStore = useRtcStore()
@@ -95,13 +96,13 @@ onUnmounted(() => {
     <!-- Controls -->
     <div class="controls">
       <a-button :type="rtcStore.audioEnabled ? 'primary' : 'outline'" shape="circle" @click="rtcStore.toggleAudio">
-        {{ rtcStore.audioEnabled ? '🎤' : '🔇' }}
+        <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
       </a-button>
       <a-button :type="rtcStore.videoEnabled ? 'primary' : 'outline'" shape="circle" @click="rtcStore.toggleVideo">
-        {{ rtcStore.videoEnabled ? '📹' : '📷' }}
+        <template #icon><IconVideoCamera v-if="rtcStore.videoEnabled" /><IconClose v-else /></template>
       </a-button>
       <a-button type="primary" status="danger" shape="circle" @click="rtcStore.endCall">
-        📞
+        <template #icon><IconPhone /></template>
       </a-button>
     </div>
   </div>

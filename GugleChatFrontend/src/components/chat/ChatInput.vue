@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWebSocketStore } from '@/stores/websocket'
+import { IconSend } from '@arco-design/web-vue/es/icon'
 
 const props = defineProps<{ channelId: number }>()
 const wsStore = useWebSocketStore()
@@ -19,7 +20,7 @@ function handleSend() {
     <a-textarea v-model="text" placeholder="Type a message... (supports Markdown)"
                 :auto-size="{ minRows: 1, maxRows: 5 }" allow-clear
                 @keyup.enter.exact="handleSend" />
-    <a-button type="primary" :disabled="!text.trim()" @click="handleSend">Send</a-button>
+    <a-button type="primary" :disabled="!text.trim()" @click="handleSend"><template #icon><IconSend /></template></a-button>
   </div>
 </template>
 

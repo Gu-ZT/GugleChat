@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Message } from '@arco-design/web-vue'
+import { IconSettings } from '@arco-design/web-vue/es/icon'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -44,7 +45,7 @@ async function handleLogin() {
           <h1 class="auth-title">GugleChat</h1>
           <a-button type="text" size="small" @click="showServerConfig = !showServerConfig"
                     :style="{ color: showServerConfig ? '#80b4ff' : '#888' }">
-            ⚙
+            <IconSettings />
           </a-button>
         </div>
       </template>

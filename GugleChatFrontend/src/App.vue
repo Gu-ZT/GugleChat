@@ -1,8 +1,18 @@
 <script setup lang="ts">
+import { useThemeStore } from '@/stores/theme'
+import { onMounted } from 'vue'
+
+const themeStore = useThemeStore()
+
+onMounted(() => {
+  document.body.setAttribute('arco-theme', themeStore.mode)
+})
 </script>
 
 <template>
-  <router-view />
+  <a-config-provider :theme="themeStore.mode">
+    <router-view />
+  </a-config-provider>
 </template>
 
 <style>
