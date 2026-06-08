@@ -73,7 +73,10 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
     if (current == null && !showChannels) showChannels = true
 
     // Back button returns to channel list instead of exiting
-    BackHandler(enabled = !showChannels) { showChannels = true }
+    BackHandler(enabled = !showChannels && current != null) {
+        showChannels = true
+        prevChannel = null
+    }
 
     if (showChannels || current == null) {
         ChannelListScreen(channels, viewModel::selectChannel, onLogout)
@@ -82,7 +85,7 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
             if (input.isNotBlank()) {
                 viewModel.sendMessage(input.trim()); input = ""
             }
-        }, { showChannels = true })
+        }, { showChannels = true; prevChannel = null })
     }
 }
 
