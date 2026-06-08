@@ -6,6 +6,7 @@ export interface RemotePeer {
     username: string
     stream: MediaStream | null
     pc: RTCPeerConnection
+    iceBuffer: RTCIceCandidateInit[]
 }
 
 export const useRtcStore = defineStore('rtc', () => {
@@ -59,7 +60,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
-        remotePeers.value = {...remotePeers.value, [userId]: {userId, username, stream: null, pc}}
+        remotePeers.value = {...remotePeers.value, [userId]: {userId, username, stream: null, pc, iceBuffer: []}}
     }
 
     function setRemoteStream(userId: number, stream: MediaStream | null) {

@@ -45,27 +45,54 @@ async function createOffer(targetId: number, username: string) {
 async function handleOffer(body: Record<string, unknown>) {
   const senderId = body.userId as number
   const senderName = (body.username as string) || 'User' + senderId
-  const pc = rtcStore.createPeerConnection(senderId, senderName)
-  await pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
-  const answer = await pc.createAnswer()
-  await pc.setLocalDescription(answer)
-  const myName = authStore.user?.username || 'Me'
-  wsStore.sendSignaling('rtc.answer', { target: senderId, sdp: answer, username: myName })
+  try {
+    const pc = rtcStore.createPeerConnection(senderId, senderName)
+    await pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
+    // Flush buffered ICE after setting remote description
+    const peer = rtcStore.remotePeers[senderId]
+    if (peer) {
+      for (const c of peer.iceBuffer) {
+        await pc.addIceCandidate(new RTCIceCandidate(c))
+      }
+      peer.iceBuffer = []
+    }
+    const answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+    const myName = authStore.user?.username || 'Me'
+    wsStore.sendSignaling('rtc.answer', { target: senderId, sdp: answer, username: myName })
+  } catch (e: any) {
+    if (e.name === 'InvalidStateError') return // ignore state errors
+    throw e
+  }
 }
 
 async function handleAnswer(body: Record<string, unknown>) {
   const senderId = body.userId as number
   const peer = rtcStore.remotePeers[senderId]
-  if (peer) {
+  if (!peer) return
+  try {
     await peer.pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
+  } catch (e) {
+    // Ignore if already in stable state (duplicate answer)
+    if (peer.pc.signalingState !== 'stable') throw e
   }
+  // Flush buffered ICE candidates
+  for (const c of peer.iceBuffer) {
+    await peer.pc.addIceCandidate(new RTCIceCandidate(c))
+  }
+  peer.iceBuffer = []
 }
 
 async function handleIceCandidate(body: Record<string, unknown>) {
   const senderId = body.userId as number
   const peer = rtcStore.remotePeers[senderId]
-  if (peer && body.candidate) {
-    await peer.pc.addIceCandidate(new RTCIceCandidate(body.candidate as RTCIceCandidateInit))
+  if (!peer || !body.candidate) return
+  const candidate = body.candidate as RTCIceCandidateInit
+  // If remote description not set yet, buffer the candidate
+  if (!peer.pc.remoteDescription || !peer.pc.remoteDescription.type) {
+    peer.iceBuffer.push(candidate)
+  } else {
+    await peer.pc.addIceCandidate(new RTCIceCandidate(candidate))
   }
 }
 
