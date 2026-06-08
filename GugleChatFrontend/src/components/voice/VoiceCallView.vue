@@ -26,7 +26,8 @@ const authStore = useAuthStore()
 
       <!-- Remote peers -->
       <div v-for="(peer, uid) in rtcStore.remotePeers" :key="uid" class="vc-card">
-        <div class="vc-avatar" :style="{ background: '#' + ((uid * 2654435761) >>> 0).toString(16).slice(0, 6) }">
+        <div class="vc-avatar" :class="{ speaking: rtcStore.remoteSpeaking[uid] }"
+             :style="{ background: '#' + ((uid * 2654435761) >>> 0).toString(16).slice(0, 6) }">
           {{ peer.username?.charAt(0).toUpperCase() }}
         </div>
         <div class="vc-name">{{ peer.username }}</div>

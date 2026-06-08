@@ -100,7 +100,8 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         <!-- Connected voice users -->
         <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id" class="voice-users-list">
           <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="voice-user-item">
-            <span class="vu-dot" :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }" />
+            <span class="vu-dot" :class="{ 'vu-speaking': rtcStore.remoteSpeaking[u.userId] }"
+                  :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }" />
             <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}{{ u.userId === rtcStore.hostId ? ' 👑' : '' }}</span>
             <span v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]" class="vu-state">
               {{ connStateLabel(rtcStore.remotePeers[u.userId].iceState) }}
@@ -227,7 +228,8 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .voice-user-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; color: #949ba4; }
 .vu-icon { font-size: 14px; }
 .vu-icon.speaking { color: #22c55e; }
-.vu-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.vu-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transition: background .15s; }
+.vu-dot.vu-speaking { background: #22c55e !important; box-shadow: 0 0 6px #22c55e; }
 .vu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vu-state { font-size: 10px; color: #949ba4; margin-left: auto; }
 

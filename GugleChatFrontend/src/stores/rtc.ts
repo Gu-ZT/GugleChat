@@ -52,6 +52,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const showVoiceChat = ref(false)
     const hostId = ref<number | null>(null)
     const speaking = ref(false)
+    const remoteSpeaking = ref<Record<number, boolean>>({})
     const monitoring = ref(false)
     const audioInputs = ref<AudioDevice[]>([])
     const currentAudioDevice = ref('')
@@ -111,6 +112,7 @@ export const useRtcStore = defineStore('rtc', () => {
     function removeRemotePeer(userId: number) {
         const peer = remotePeers.value[userId]
         if (peer) {
+            stopRemoteVad(userId)
             peer.audioEl?.pause()
             peer.audioEl?.remove()
             peer.audioEl = null
@@ -147,6 +149,8 @@ export const useRtcStore = defineStore('rtc', () => {
                 document.body.appendChild(audio)
                 audio.play().catch(e => console.warn('[RTC] audio play blocked:', e))
                 if (peer) { peer.audioEl = audio; remotePeers.value = {...remotePeers.value} }
+                // Remote VAD: detect when this peer is speaking
+                startRemoteVad(targetId, stream)
             }
         }
         pc.oniceconnectionstatechange = () => {
@@ -208,6 +212,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function endCall() {
         Object.values(remotePeers.value).forEach(p => p.pc.close())
+        Object.keys(remoteVadTimers).forEach(uid => stopRemoteVad(Number(uid)))
         remotePeers.value = {}
         voiceUsers.value = []
         stopVad()
@@ -314,6 +319,35 @@ export const useRtcStore = defineStore('rtc', () => {
         tick()
     }
 
+    // Remote VAD: track each remote stream separately
+    const remoteVadTimers: Record<number, number> = {}
+
+    function startRemoteVad(userId: number, stream: MediaStream) {
+        stopRemoteVad(userId)
+        const ctx = new AudioContext()
+        const analyser = ctx.createAnalyser()
+        analyser.fftSize = 256
+        ctx.createMediaStreamSource(stream).connect(analyser)
+        const data = new Uint8Array(analyser.frequencyBinCount)
+        const tick = () => {
+            analyser.getByteFrequencyData(data)
+            const avg = data.reduce((a, b) => a + b, 0) / data.length
+            const speaking = avg > 30
+            if (remoteSpeaking.value[userId] !== speaking) {
+                remoteSpeaking.value = { ...remoteSpeaking.value, [userId]: speaking }
+            }
+            remoteVadTimers[userId] = requestAnimationFrame(tick)
+        }
+        tick()
+    }
+
+    function stopRemoteVad(userId: number) {
+        if (remoteVadTimers[userId]) { cancelAnimationFrame(remoteVadTimers[userId]); delete remoteVadTimers[userId] }
+        if (remoteSpeaking.value[userId]) {
+            remoteSpeaking.value = { ...remoteSpeaking.value, [userId]: false }
+        }
+    }
+
     function stopVad() {
         if (vadTimer) { cancelAnimationFrame(vadTimer); vadTimer = null }
         if (audioCtx) { audioCtx.close(); audioCtx = null }
@@ -369,7 +403,7 @@ export const useRtcStore = defineStore('rtc', () => {
         localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
         setVoiceUsers,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
-        hostId, startCall, endCall, toggleVideo, toggleAudio, speaking, monitoring, setMonitoring,
+        hostId, startCall, endCall, toggleVideo, toggleAudio, speaking, remoteSpeaking, monitoring, setMonitoring,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn
