@@ -29,7 +29,7 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   if (['mp4', 'webm', 'mov'].includes(ext)) {
     return `<video controls style="max-width:100%;border-radius:6px;max-height:360px" src="${href}">`
   }
-  if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) {
+  if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus', 'weba'].includes(ext)) {
     return `<audio controls style="width:100%" src="${href}">`
   }
   return defaultLinkRender(tokens, idx, options, env, self)

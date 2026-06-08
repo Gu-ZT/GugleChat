@@ -16,8 +16,9 @@ export const fileService = {
     return res.data as unknown as FileInfo
   },
 
-  getUrl(fileId: string): string {
+  getUrl(fileId: string, ext?: string): string {
     const backend = localStorage.getItem('guglechat_backend_url') || ''
-    return backend ? `${backend}/api/files/${fileId}` : `/api/files/${fileId}`
+    const suffix = ext ? `.${ext}` : ''
+    return backend ? `${backend}/api/files/${fileId}${suffix}` : `/api/files/${fileId}${suffix}`
   },
 }

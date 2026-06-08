@@ -41,12 +41,15 @@ public class FileController {
         }
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:.+}")
     public void download(@PathVariable String id, jakarta.servlet.http.HttpServletResponse response) {
         try {
+            // Strip extension if URL has one, e.g. /api/files/uuid.mp3 → lookup by uuid
+            String lookupId = id.contains(".") ? id.substring(0, id.lastIndexOf('.')) : id;
             Path dir = Paths.get(uploadDir);
+            if (!Files.exists(dir)) Files.createDirectories(dir);
             Optional<Path> file = Files.list(dir)
-                    .filter(p -> p.getFileName().toString().startsWith(id))
+                    .filter(p -> p.getFileName().toString().startsWith(lookupId))
                     .findFirst();
             if (file.isEmpty()) { response.sendError(404); return; }
             Path p = file.get();

@@ -31,13 +31,13 @@ function triggerUpload() {
         const isImage = info.contentType?.startsWith('image/')
         const isVideo = info.contentType?.startsWith('video/')
         const isAudio = info.contentType?.startsWith('audio/')
+         const ext = info.originalName?.split('.').pop() || ''
+        const url = fileService.getUrl(info.id, ext)
         const markdown = isImage
-          ? `![${info.originalName}](${fileService.getUrl(info.id)})`
-          : isVideo
-            ? `🎬 [${info.originalName}](${fileService.getUrl(info.id)})`
-            : isAudio
-              ? `🎵 [${info.originalName}](${fileService.getUrl(info.id)})`
-              : `📎 [${info.originalName}](${fileService.getUrl(info.id)})`
+          ? `![${info.originalName}](${url})`
+          : isVideo || isAudio
+            ? `${url}`  // bare URL → linkify auto-converts → custom renderer creates player
+            : `[📎 ${info.originalName}](${url})`
         wsStore.sendMessage(props.channelId, markdown)
       }
     } catch (e: any) {
