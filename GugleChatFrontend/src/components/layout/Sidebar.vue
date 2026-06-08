@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useRtcStore } from '@/stores/rtc'
-import { IconPlus, IconNotification, IconSettings, IconClose, IconUser } from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconNotification, IconSettings, IconClose, IconUser, IconMessage } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
@@ -37,12 +37,22 @@ function handleChannelClick(c: { id: number; type: ChannelType }) {
       clearTimeout(clickTimer); clickTimer = null
       rtcStore.startCall(c.id)
       wsStore.subscribeToChannel(c.id)
+      rtcStore.showVoiceChat = false
       return
     }
     clickTimer = setTimeout(() => { clickTimer = null }, 300)
   }
-  channelStore.selectChannel(c.id)
-  wsStore.subscribeToChannel(c.id)
+  selectTextChannel(c.id)
+}
+
+function selectTextChannel(id: number) {
+  channelStore.selectChannel(id)
+  wsStore.subscribeToChannel(id)
+  if (rtcStore.activeRoomId) rtcStore.showVoiceChat = true
+}
+
+function openVoiceChat(c: { id: number; type: ChannelType }) {
+  selectTextChannel(c.id)
 }
 
 function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push('/login') }
@@ -80,7 +90,12 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
           <IconNotification v-if="c.type === 'VOICE'" class="ch-icon voice-icon" />
           <span v-else class="ch-icon ch-hash">#</span>
           <span class="ch-name">{{ c.name }}</span>
-          <!-- Voice user count -->
+          <!-- Chat button on voice channel -->
+          <a-button v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
+                    class="ch-chat-btn" type="text" size="mini"
+                    @click.stop="openVoiceChat(c)" title="Open text chat">
+            <template #icon><IconMessage /></template>
+          </a-button>
           <span v-if="c.type === 'VOICE' && rtcStore.voiceUsers.size > 0 && rtcStore.activeRoomId === c.id"
                 class="voice-count">
             <span class="count-dot" />{{ rtcStore.voiceUsers.size }}
@@ -102,6 +117,25 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
       </template>
     </div>
 
+    <!-- Voice controls (above user panel) -->
+    <div v-if="rtcStore.activeRoomId" class="voice-controls-panel">
+      <div class="vcp-left">
+        <IconNotification class="vcp-signal" />
+        <span class="vcp-text">Voice Connected</span>
+      </div>
+      <div class="vcp-actions">
+        <a-button type="text" size="mini"
+                  :status="!rtcStore.audioEnabled ? 'danger' : undefined"
+                  @click="rtcStore.toggleAudio">
+          <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
+        </a-button>
+        <a-button type="text" size="mini" status="danger"
+                  @click="rtcStore.endCall()">
+          <template #icon><IconClose /></template>
+        </a-button>
+      </div>
+    </div>
+
     <!-- Bottom user panel (Discord-style) -->
     <div class="user-panel">
       <div class="user-avatar">{{ authStore.user?.username?.charAt(0).toUpperCase() }}</div>
@@ -113,11 +147,6 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         </div>
       </div>
       <div class="user-actions">
-        <a-button v-if="rtcStore.activeRoomId" type="text" size="mini"
-                  :status="rtcStore.audioEnabled ? undefined : 'danger'"
-                  @click="rtcStore.toggleAudio">
-          <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
-        </a-button>
         <a-button type="text" size="mini" @click="router.push('/settings')">
           <template #icon><IconSettings /></template>
         </a-button>
@@ -181,6 +210,23 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .vu-icon { font-size: 14px; }
 .vu-icon.speaking { color: #22c55e; }
 .vu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ch-chat-btn { opacity: 0; margin-left: auto; }
+.channel-item:hover .ch-chat-btn { opacity: 1; }
+.ch-chat-btn :deep(.arco-btn) { color: #b5bac1; }
+
+/* Voice controls panel */
+.voice-controls-panel {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 8px; background: #232428; border-top: 1px solid #2b2d31;
+  border-bottom: 1px solid #2b2d31; gap: 4px;
+}
+.vcp-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vcp-signal { color: #22c55e; font-size: 16px; flex-shrink: 0; }
+.vcp-text { font-size: 12px; color: #22c55e; font-weight: 600; white-space: nowrap; }
+.vcp-actions { display: flex; gap: 2px; }
+.vcp-actions :deep(.arco-btn-text) { color: #b5bac1; }
+.vcp-actions :deep(.arco-btn-text:hover) { color: #dbdee1; background: #35373c; }
 
 /* Bottom user panel */
 .user-panel {

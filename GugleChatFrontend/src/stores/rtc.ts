@@ -15,6 +15,7 @@ export const useRtcStore = defineStore('rtc', () => {
   const videoEnabled = ref(false)
   const audioEnabled = ref(true)
   const voiceUsers = ref<Set<number>>(new Set())
+  const showVoiceChat = ref(false)
 
   const iceServers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -116,7 +117,7 @@ export const useRtcStore = defineStore('rtc', () => {
   let sendSignaling: (type: string, payload: Record<string, unknown>) => void = () => {}
 
   return {
-    localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers,
+    localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
     setVoiceUsers,
     addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
     startCall, endCall, toggleVideo, toggleAudio,
