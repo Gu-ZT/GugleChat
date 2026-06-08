@@ -111,6 +111,7 @@ export const useRtcStore = defineStore('rtc', () => {
         const peer = remotePeers.value[userId]
         if (peer) {
             peer.audioEl?.pause()
+            peer.audioEl?.remove()
             peer.audioEl = null
             peer.pc.close()
             const next = {...remotePeers.value};
@@ -134,12 +135,20 @@ export const useRtcStore = defineStore('rtc', () => {
             const stream = event.streams[0]
             if (stream) {
                 const peer = remotePeers.value[targetId]
-                const audio = new Audio()
+                if (peer) {
+                    // Stop old audio if exists
+                    peer.audioEl?.pause()
+                    peer.audioEl?.remove()
+                }
+                const audio = document.createElement('audio')
                 audio.srcObject = stream
                 audio.autoplay = true
-                audio.play().catch(() => {})
+                audio.controls = false
+                audio.style.display = 'none'
+                document.body.appendChild(audio)
+                audio.play().catch(e => console.warn('[RTC] audio play blocked:', e))
                 if (peer) {
-                    peer.audioEl = audio // keep reference so GC doesn't kill it
+                    peer.audioEl = audio
                     remotePeers.value = {...remotePeers.value}
                 }
             }
@@ -160,23 +169,12 @@ export const useRtcStore = defineStore('rtc', () => {
             }
         }
 
-        // Add transceivers BEFORE creating offer to ensure consistent m-line order
-        pc.addTransceiver('audio', {direction: 'sendrecv'})
-        pc.addTransceiver('video', {direction: 'sendrecv'})
-
-        // Replace placeholder tracks with actual local tracks
+        // Add local tracks directly (standard WebRTC approach)
         if (localStream.value) {
-            const audioTrack = localStream.value.getAudioTracks()[0]
-            console.log(`[RTC] local audio track: ${audioTrack?.kind || 'none'}, enabled: ${audioTrack?.enabled}`)
-            if (audioTrack) {
-                const sender = pc.getSenders().find(s => s.track?.kind === 'audio')
-                if (sender) sender.replaceTrack(audioTrack)
-            }
-            const videoTrack = localStream.value.getVideoTracks()[0]
-            if (videoTrack) {
-                const sender = pc.getSenders().find(s => s.track?.kind === 'video')
-                if (sender) sender.replaceTrack(videoTrack)
-            }
+            localStream.value.getTracks().forEach(track => {
+                console.log(`[RTC] adding track: ${track.kind}, enabled: ${track.enabled}`)
+                pc.addTrack(track, localStream.value!)
+            })
         } else {
             console.log('[RTC] no local stream — cannot send audio')
         }
