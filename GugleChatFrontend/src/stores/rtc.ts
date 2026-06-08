@@ -93,8 +93,22 @@ export const useRtcStore = defineStore('rtc', () => {
             setRemoteStream(targetId, event.streams[0])
         }
 
+        // Add transceivers BEFORE creating offer to ensure consistent m-line order
+        pc.addTransceiver('audio', {direction: 'sendrecv'})
+        pc.addTransceiver('video', {direction: 'sendrecv'})
+
+        // Replace placeholder tracks with actual local tracks
         if (localStream.value) {
-            localStream.value.getTracks().forEach(track => pc.addTrack(track, localStream.value!))
+            const audioTrack = localStream.value.getAudioTracks()[0]
+            if (audioTrack) {
+                const sender = pc.getSenders().find(s => s.track?.kind === 'audio')
+                if (sender) sender.replaceTrack(audioTrack)
+            }
+            const videoTrack = localStream.value.getVideoTracks()[0]
+            if (videoTrack) {
+                const sender = pc.getSenders().find(s => s.track?.kind === 'video')
+                if (sender) sender.replaceTrack(videoTrack)
+            }
         }
         return pc
     }
