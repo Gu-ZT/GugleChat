@@ -17,11 +17,11 @@ function toggleFocus(uid: number) {
 }
 
 function hasVideo(uid: number): boolean {
-  if (uid === authStore.user?.id) return rtcStore.videoEnabled && !!rtcStore.localStream?.getVideoTracks().length
+  if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) && (rtcStore.localStream?.getVideoTracks().length ?? 0) > 0
   return (rtcStore.remotePeers[uid]?.stream?.getVideoTracks().length ?? 0) > 0
 }
 function getStream(uid: number): MediaStream | null {
-  if (uid === authStore.user?.id) return rtcStore.videoEnabled ? rtcStore.localStream : null
+  if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) ? rtcStore.localStream : null
   const s = rtcStore.remotePeers[uid]?.stream
   return s?.getVideoTracks().length ? s : null
 }
@@ -31,8 +31,8 @@ function getStream(uid: number): MediaStream | null {
   <div class="voice-call-view" @click.self="focusedUserId = null">
     <!-- Focused large video -->
     <div v-if="focusedUserId !== null && getStream(focusedUserId)" class="vc-focused">
-      <video autoplay playsinline :srcObject="getStream(focusedUserId)"
-             :class="{ mirrored: focusedUserId === authStore.user?.id }" />
+      <video autoplay playsinline :muted="focusedUserId === authStore.user?.id"
+             :srcObject="getStream(focusedUserId)" />
       <div class="vc-focused-name">
         {{ rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0).find(u => u.userId === focusedUserId)?.username }}
       </div>
@@ -49,10 +49,10 @@ function getStream(uid: number): MediaStream | null {
     <div v-if="focusedUserId === null" class="vc-participants">
       <div v-for="u in rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0)" :key="u.userId"
            class="vc-card" :class="{ 'has-video': hasVideo(u.userId) }" @dblclick="hasVideo(u.userId) && toggleFocus(u.userId)">
-        <!-- Self video preview -->
-        <div v-if="u.userId === authStore.user?.id && rtcStore.videoEnabled && rtcStore.localStream"
+        <!-- Self video/screen preview -->
+        <div v-if="u.userId === authStore.user?.id && (rtcStore.videoEnabled || rtcStore.screenSharing) && rtcStore.localStream?.getVideoTracks().length"
              class="vc-video-preview">
-          <video autoplay muted playsinline :srcObject="rtcStore.localStream" class="mirrored" />
+          <video autoplay muted playsinline :srcObject="rtcStore.localStream" :class="{ mirrored: !rtcStore.screenSharing }" />
         </div>
         <div v-else class="vc-avatar"
              :class="{ speaking: u.userId === authStore.user?.id ? rtcStore.speaking : rtcStore.remoteSpeaking[u.userId] }"
