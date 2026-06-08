@@ -1,8 +1,8 @@
 package dev.dubhe.gugle.chat.channel.controller;
 
-import com.guglechat.channel.dto.*;
-import com.guglechat.channel.service.ChannelService;
-import com.guglechat.common.dto.ApiResponse;
+import dev.dubhe.gugle.chat.channel.dto.*;
+import dev.dubhe.gugle.chat.channel.service.ChannelService;
+import dev.dubhe.gugle.chat.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -28,8 +28,7 @@ public class ChannelController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<ChannelResponse> update(@PathVariable Long id, @Valid @RequestBody ChannelRequest req,
-                                                Authentication auth) {
+    public ApiResponse<ChannelResponse> update(@PathVariable Long id, @Valid @RequestBody ChannelRequest req, Authentication auth) {
         return ApiResponse.ok(channelService.updateChannel(id, (Long) auth.getPrincipal(), req));
     }
 
@@ -45,15 +44,13 @@ public class ChannelController {
     }
 
     @PostMapping("/{id}/members")
-    public ApiResponse<Void> addMember(@PathVariable Long id, @RequestBody Map<String, Long> body,
-                                        Authentication auth) {
+    public ApiResponse<Void> addMember(@PathVariable Long id, @RequestBody Map<String, Long> body, Authentication auth) {
         channelService.addMember(id, (Long) auth.getPrincipal(), body.get("userId"));
         return ApiResponse.ok();
     }
 
     @DeleteMapping("/{id}/members/{userId}")
-    public ApiResponse<Void> removeMember(@PathVariable Long id, @PathVariable Long userId,
-                                           Authentication auth) {
+    public ApiResponse<Void> removeMember(@PathVariable Long id, @PathVariable Long userId, Authentication auth) {
         channelService.removeMember(id, (Long) auth.getPrincipal(), userId);
         return ApiResponse.ok();
     }

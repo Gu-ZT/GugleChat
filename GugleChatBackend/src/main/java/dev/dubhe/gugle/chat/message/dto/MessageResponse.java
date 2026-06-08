@@ -1,7 +1,7 @@
 package dev.dubhe.gugle.chat.message.dto;
 
-import com.guglechat.common.enums.MessageType;
-import com.guglechat.message.model.Message;
+import dev.dubhe.gugle.chat.common.enums.MessageType;
+import dev.dubhe.gugle.chat.message.model.Message;
 import java.time.LocalDateTime;
 import java.util.List;
 

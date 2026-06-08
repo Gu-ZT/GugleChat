@@ -3,7 +3,6 @@ package dev.dubhe.gugle.chat.common.dto;
 import java.util.List;
 
 public class PageResponse<T> {
-
     private List<T> items;
     private long total;
     private int page;

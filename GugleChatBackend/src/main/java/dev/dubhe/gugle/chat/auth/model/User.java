@@ -1,46 +1,42 @@
 package dev.dubhe.gugle.chat.auth.model;
 
-import com.guglechat.common.enums.UserStatus;
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import dev.dubhe.gugle.chat.common.enums.UserStatus;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "users")
+@TableName("users")
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @TableField
     private String username;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @TableField
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @TableField("password_hash")
     private String passwordHash;
 
-    @Column(name = "avatar_url", length = 500)
+    @TableField("avatar_url")
     private String avatarUrl;
 
-    @Column(length = 50)
+    @TableField
     private String nickname;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @TableField
     private UserStatus status = UserStatus.OFFLINE;
 
-    @Column(name = "last_seen_at")
+    @TableField("last_seen_at")
     private LocalDateTime lastSeenAt;
 
-    @Column(name = "created_at", updatable = false)
+    @TableField("created_at")
     private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 
     public User() {}
 
@@ -67,4 +63,5 @@ public class User {
     public LocalDateTime getLastSeenAt() { return lastSeenAt; }
     public void setLastSeenAt(LocalDateTime lastSeenAt) { this.lastSeenAt = lastSeenAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

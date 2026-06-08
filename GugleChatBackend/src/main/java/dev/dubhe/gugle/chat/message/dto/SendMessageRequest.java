@@ -1,6 +1,6 @@
 package dev.dubhe.gugle.chat.message.dto;
 
-import com.guglechat.common.enums.MessageType;
+import dev.dubhe.gugle.chat.common.enums.MessageType;
 
 public class SendMessageRequest {
     private String content;

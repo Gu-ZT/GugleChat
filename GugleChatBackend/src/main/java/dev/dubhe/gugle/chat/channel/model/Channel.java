@@ -1,46 +1,36 @@
 package dev.dubhe.gugle.chat.channel.model;
 
-import com.guglechat.common.enums.ChannelType;
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import dev.dubhe.gugle.chat.common.enums.ChannelType;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "channels")
+@TableName("channels")
 public class Channel {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @TableField
     private String name;
 
-    @Column(columnDefinition = "TEXT")
+    @TableField
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @TableField
     private ChannelType type = ChannelType.TEXT;
 
-    @Column(name = "created_by", nullable = false)
+    @TableField("created_by")
     private Long createdBy;
 
-    @Column(name = "created_at", updatable = false)
+    @TableField("created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @TableField("updated_at")
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 
     public Channel() {}
     public Channel(String name, ChannelType type, Long createdBy) {
@@ -60,5 +50,7 @@ public class Channel {
     public Long getCreatedBy() { return createdBy; }
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

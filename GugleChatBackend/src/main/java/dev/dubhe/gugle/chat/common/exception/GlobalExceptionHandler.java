@@ -1,6 +1,6 @@
 package dev.dubhe.gugle.chat.common.exception;
 
-import com.guglechat.common.dto.ApiResponse;
+import dev.dubhe.gugle.chat.common.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

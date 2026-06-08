@@ -1,27 +1,34 @@
 package dev.dubhe.gugle.chat.channel.service;
 
-import com.guglechat.channel.dto.*;
-import com.guglechat.channel.model.*;
-import com.guglechat.common.enums.MemberRole;
-import com.guglechat.common.exception.BusinessException;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import dev.dubhe.gugle.chat.channel.dto.*;
+import dev.dubhe.gugle.chat.channel.model.*;
+import dev.dubhe.gugle.chat.common.enums.MemberRole;
+import dev.dubhe.gugle.chat.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 public class ChannelService {
 
-    private final ChannelRepository channelRepo;
-    private final ChannelMemberRepository memberRepo;
+    private final ChannelMapper channelMapper;
+    private final ChannelMemberMapper memberMapper;
 
-    public ChannelService(ChannelRepository channelRepo, ChannelMemberRepository memberRepo) {
-        this.channelRepo = channelRepo;
-        this.memberRepo = memberRepo;
+    public ChannelService(ChannelMapper channelMapper, ChannelMemberMapper memberMapper) {
+        this.channelMapper = channelMapper;
+        this.memberMapper = memberMapper;
     }
 
     public List<ChannelResponse> getUserChannels(Long userId) {
-        return channelRepo.findChannelsByUserId(userId).stream()
-                .map(c -> ChannelResponse.from(c, memberRepo.findByChannelId(c.getId()).size()))
+        return channelMapper.findChannelsByUserId(userId).stream()
+                .map(c -> {
+                    long count = memberMapper.selectCount(
+                            new LambdaQueryWrapper<ChannelMember>().eq(ChannelMember::getChannelId, c.getId()));
+                    return ChannelResponse.from(c, (int) count);
+                })
                 .toList();
     }
 
@@ -29,61 +36,75 @@ public class ChannelService {
     public ChannelResponse createChannel(Long userId, ChannelRequest req) {
         Channel c = new Channel(req.getName(), req.getType(), userId);
         c.setDescription(req.getDescription());
-        c = channelRepo.save(c);
-        memberRepo.save(new ChannelMember(c.getId(), userId, MemberRole.OWNER));
+        c.setCreatedAt(LocalDateTime.now());
+        c.setUpdatedAt(LocalDateTime.now());
+        channelMapper.insert(c);
+
+        ChannelMember m = new ChannelMember(c.getId(), userId, MemberRole.OWNER);
+        m.setJoinedAt(LocalDateTime.now());
+        memberMapper.insert(m);
+
         return ChannelResponse.from(c, 1);
     }
 
     @Transactional
     public ChannelResponse updateChannel(Long channelId, Long userId, ChannelRequest req) {
-        Channel c = channelRepo.findById(channelId)
-                .orElseThrow(() -> new BusinessException("Channel not found"));
+        Channel c = channelMapper.selectById(channelId);
+        if (c == null) throw new BusinessException("Channel not found");
         ensureAdmin(channelId, userId);
         c.setName(req.getName());
         c.setDescription(req.getDescription());
-        c = channelRepo.save(c);
-        return ChannelResponse.from(c, memberRepo.findByChannelId(channelId).size());
+        c.setUpdatedAt(LocalDateTime.now());
+        channelMapper.updateById(c);
+
+        long count = memberMapper.selectCount(
+                new LambdaQueryWrapper<ChannelMember>().eq(ChannelMember::getChannelId, channelId));
+        return ChannelResponse.from(c, (int) count);
     }
 
     @Transactional
     public void deleteChannel(Long channelId, Long userId) {
-        Channel c = channelRepo.findById(channelId)
-                .orElseThrow(() -> new BusinessException("Channel not found"));
+        Channel c = channelMapper.selectById(channelId);
+        if (c == null) throw new BusinessException("Channel not found");
         if (!c.getCreatedBy().equals(userId))
             throw new BusinessException(403, "Only owner can delete");
-        memberRepo.findByChannelId(channelId).forEach(m -> memberRepo.delete(m));
-        channelRepo.delete(c);
+        memberMapper.delete(new LambdaQueryWrapper<ChannelMember>()
+                .eq(ChannelMember::getChannelId, channelId));
+        channelMapper.deleteById(channelId);
     }
 
     public List<MemberResponse> getMembers(Long channelId, Long userId) {
         ensureMember(channelId, userId);
-        return memberRepo.findByChannelId(channelId).stream().map(MemberResponse::from).toList();
+        return memberMapper.selectList(
+                new LambdaQueryWrapper<ChannelMember>().eq(ChannelMember::getChannelId, channelId))
+                .stream().map(MemberResponse::from).toList();
     }
 
     @Transactional
     public void addMember(Long channelId, Long adderId, Long newUserId) {
         ensureAdmin(channelId, adderId);
-        if (memberRepo.existsByChannelIdAndUserId(channelId, newUserId))
+        if (memberMapper.existsByChannelIdAndUserId(channelId, newUserId))
             throw new BusinessException("Already a member");
-        memberRepo.save(new ChannelMember(channelId, newUserId, MemberRole.MEMBER));
+        ChannelMember m = new ChannelMember(channelId, newUserId, MemberRole.MEMBER);
+        m.setJoinedAt(LocalDateTime.now());
+        memberMapper.insert(m);
     }
 
     @Transactional
     public void removeMember(Long channelId, Long removerId, Long targetUserId) {
         if (!removerId.equals(targetUserId))
             ensureAdmin(channelId, removerId);
-        memberRepo.deleteByChannelIdAndUserId(channelId, targetUserId);
+        memberMapper.deleteByChannelIdAndUserId(channelId, targetUserId);
     }
 
     private void ensureAdmin(Long channelId, Long userId) {
-        ChannelMember m = memberRepo.findByChannelIdAndUserId(channelId, userId)
-                .orElseThrow(() -> new BusinessException(403, "Not a member"));
-        if (m.getRole() == MemberRole.MEMBER)
-            throw new BusinessException(403, "Admin+ required");
+        ChannelMember m = memberMapper.findByChannelIdAndUserId(channelId, userId);
+        if (m == null) throw new BusinessException(403, "Not a member");
+        if (m.getRole() == MemberRole.MEMBER) throw new BusinessException(403, "Admin+ required");
     }
 
     private void ensureMember(Long channelId, Long userId) {
-        if (!memberRepo.existsByChannelIdAndUserId(channelId, userId))
+        if (!memberMapper.existsByChannelIdAndUserId(channelId, userId))
             throw new BusinessException(403, "Not a member");
     }
 }

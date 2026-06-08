@@ -1,6 +1,6 @@
 package dev.dubhe.gugle.chat.message.websocket;
 
-import com.guglechat.auth.service.JwtService;
+import dev.dubhe.gugle.chat.auth.service.JwtService;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;

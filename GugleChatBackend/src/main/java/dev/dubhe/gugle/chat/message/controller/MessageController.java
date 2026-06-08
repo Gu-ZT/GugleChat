@@ -1,8 +1,8 @@
 package dev.dubhe.gugle.chat.message.controller;
 
-import com.guglechat.common.dto.ApiResponse;
-import com.guglechat.message.dto.MessageResponse;
-import com.guglechat.message.service.MessageService;
+import dev.dubhe.gugle.chat.common.dto.ApiResponse;
+import dev.dubhe.gugle.chat.message.dto.MessageResponse;
+import dev.dubhe.gugle.chat.message.service.MessageService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -26,7 +26,8 @@ public class MessageController {
     public ApiResponse<MessageResponse> edit(@PathVariable Long messageId,
                                               @RequestBody Map<String, String> body,
                                               Authentication auth) {
-        return ApiResponse.ok(messageService.editMessage(messageId, (Long) auth.getPrincipal(), body.get("content")));
+        return ApiResponse.ok(messageService.editMessage(messageId,
+                (Long) auth.getPrincipal(), body.get("content")));
     }
 
     @DeleteMapping("/messages/{messageId}")

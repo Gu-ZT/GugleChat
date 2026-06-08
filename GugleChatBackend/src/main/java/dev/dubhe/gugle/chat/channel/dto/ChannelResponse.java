@@ -1,7 +1,7 @@
 package dev.dubhe.gugle.chat.channel.dto;
 
-import com.guglechat.channel.model.Channel;
-import com.guglechat.common.enums.ChannelType;
+import dev.dubhe.gugle.chat.channel.model.Channel;
+import dev.dubhe.gugle.chat.common.enums.ChannelType;
 import java.time.LocalDateTime;
 
 public class ChannelResponse {
@@ -14,16 +14,16 @@ public class ChannelResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static ChannelResponse from(Channel channel, int memberCount) {
+    public static ChannelResponse from(Channel c, int memberCount) {
         ChannelResponse r = new ChannelResponse();
-        r.id = channel.getId();
-        r.name = channel.getName();
-        r.description = channel.getDescription();
-        r.type = channel.getType();
-        r.createdBy = channel.getCreatedBy();
+        r.id = c.getId();
+        r.name = c.getName();
+        r.description = c.getDescription();
+        r.type = c.getType();
+        r.createdBy = c.getCreatedBy();
         r.memberCount = memberCount;
-        r.createdAt = channel.getCreatedAt();
-        r.updatedAt = channel.getUpdatedAt();
+        r.createdAt = c.getCreatedAt();
+        r.updatedAt = c.getUpdatedAt();
         return r;
     }
 

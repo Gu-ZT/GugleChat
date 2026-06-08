@@ -1,10 +1,10 @@
 package dev.dubhe.gugle.chat.auth.controller;
 
-import com.guglechat.auth.dto.AuthResponse;
-import com.guglechat.auth.dto.LoginRequest;
-import com.guglechat.auth.dto.RegisterRequest;
-import com.guglechat.auth.service.AuthService;
-import com.guglechat.common.dto.ApiResponse;
+import dev.dubhe.gugle.chat.auth.dto.AuthResponse;
+import dev.dubhe.gugle.chat.auth.dto.LoginRequest;
+import dev.dubhe.gugle.chat.auth.dto.RegisterRequest;
+import dev.dubhe.gugle.chat.auth.service.AuthService;
+import dev.dubhe.gugle.chat.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;

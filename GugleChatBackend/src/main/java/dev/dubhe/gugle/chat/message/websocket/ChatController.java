@@ -1,13 +1,14 @@
 package dev.dubhe.gugle.chat.message.websocket;
 
-import com.guglechat.message.dto.MessageResponse;
-import com.guglechat.message.dto.SendMessageRequest;
-import com.guglechat.message.service.MessageService;
+import dev.dubhe.gugle.chat.message.dto.MessageResponse;
+import dev.dubhe.gugle.chat.message.dto.SendMessageRequest;
+import dev.dubhe.gugle.chat.message.service.MessageService;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+
 import java.security.Principal;
 import java.util.Map;
 

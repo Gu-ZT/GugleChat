@@ -1,7 +1,7 @@
 package dev.dubhe.gugle.chat.channel.dto;
 
-import com.guglechat.channel.model.ChannelMember;
-import com.guglechat.common.enums.MemberRole;
+import dev.dubhe.gugle.chat.channel.model.ChannelMember;
+import dev.dubhe.gugle.chat.common.enums.MemberRole;
 import java.time.LocalDateTime;
 
 public class MemberResponse {

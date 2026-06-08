@@ -29,14 +29,6 @@ spring:
           max-active: 50
           max-wait: 5000ms
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
   servlet:
     multipart:
       max-file-size: 100MB
@@ -44,19 +36,11 @@ spring:
 
 
 server:
-  servlet:
-    context-path: /api/v1
-  undertow:
-    max-http-post-size: -1
-    buffer-size: 512
-    direct-buffers: true
-    threads:
-      io: 8
-      worker: 256
+  port: 8080
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/*Mapper.xml
-  type-aliases-package: dev.modwiki.backend
+  type-aliases-package: dev.dubhe.gugle.chat
   check-config-location: false
   executor-type: simple
   configuration:

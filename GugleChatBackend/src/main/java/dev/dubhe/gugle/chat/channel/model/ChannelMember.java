@@ -1,33 +1,30 @@
 package dev.dubhe.gugle.chat.channel.model;
 
-import com.guglechat.common.enums.MemberRole;
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import dev.dubhe.gugle.chat.common.enums.MemberRole;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "channel_members",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"channel_id", "user_id"}))
+@TableName("channel_members")
 public class ChannelMember {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(name = "channel_id", nullable = false)
+    @TableField("channel_id")
     private Long channelId;
 
-    @Column(name = "user_id", nullable = false)
+    @TableField("user_id")
     private Long userId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @TableField
     private MemberRole role = MemberRole.MEMBER;
 
-    @Column(name = "joined_at", updatable = false)
+    @TableField("joined_at")
     private LocalDateTime joinedAt;
-
-    @PrePersist
-    protected void onCreate() { joinedAt = LocalDateTime.now(); }
 
     public ChannelMember() {}
     public ChannelMember(Long channelId, Long userId, MemberRole role) {
@@ -42,4 +39,5 @@ public class ChannelMember {
     public MemberRole getRole() { return role; }
     public void setRole(MemberRole role) { this.role = role; }
     public LocalDateTime getJoinedAt() { return joinedAt; }
+    public void setJoinedAt(LocalDateTime joinedAt) { this.joinedAt = joinedAt; }
 }

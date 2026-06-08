@@ -1,6 +1,6 @@
 package dev.dubhe.gugle.chat.auth.filter;
 
-import com.guglechat.auth.service.JwtService;
+import dev.dubhe.gugle.chat.auth.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

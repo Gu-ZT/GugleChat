@@ -1,6 +1,6 @@
 package dev.dubhe.gugle.chat.channel.dto;
 
-import com.guglechat.common.enums.ChannelType;
+import dev.dubhe.gugle.chat.common.enums.ChannelType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

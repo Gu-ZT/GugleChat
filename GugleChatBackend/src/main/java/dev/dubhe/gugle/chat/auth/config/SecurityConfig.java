@@ -1,6 +1,6 @@
 package dev.dubhe.gugle.chat.auth.config;
 
-import com.guglechat.auth.filter.JwtAuthenticationFilter;
+import dev.dubhe.gugle.chat.auth.filter.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

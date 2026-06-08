@@ -1,41 +1,39 @@
 package dev.dubhe.gugle.chat.message.model;
 
-import com.guglechat.common.enums.MessageType;
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import dev.dubhe.gugle.chat.common.enums.MessageType;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "messages", indexes = @Index(name = "idx_channel_created", columnList = "channel_id, created_at"))
+@TableName("messages")
 public class Message {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(name = "channel_id", nullable = false)
+    @TableField("channel_id")
     private Long channelId;
 
-    @Column(name = "user_id", nullable = false)
+    @TableField("user_id")
     private Long userId;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @TableField
     private String content;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @TableField
     private MessageType type = MessageType.TEXT;
 
-    @Column(name = "parent_id")
+    @TableField("parent_id")
     private Long parentId;
 
-    @Column(name = "edited_at")
+    @TableField("edited_at")
     private LocalDateTime editedAt;
 
-    @Column(name = "created_at", updatable = false)
+    @TableField("created_at")
     private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); }
 
     public Message() {}
     public Message(Long channelId, Long userId, String content, MessageType type) {
@@ -57,4 +55,5 @@ public class Message {
     public LocalDateTime getEditedAt() { return editedAt; }
     public void setEditedAt(LocalDateTime editedAt) { this.editedAt = editedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
