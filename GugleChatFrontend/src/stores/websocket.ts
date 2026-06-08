@@ -56,7 +56,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
       const body = JSON.parse(message.body)
       if (body.type === 'DELETE') msgStore.removeMessage(body.messageId)
       else if (body.type === 'voice-users') {
-        console.log('[WS] voice-users received:', body.users)
         useRtcStore().setVoiceUsers((body.users as { userId: number; username: string }[]) || [])
       }
       else msgStore.addMessage(body as Message)

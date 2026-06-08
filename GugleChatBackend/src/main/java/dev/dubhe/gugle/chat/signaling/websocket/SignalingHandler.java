@@ -30,9 +30,7 @@ public class SignalingHandler {
                 ? accessor.getSessionAttributes().get("username") : null;
         String username = uname != null ? uname.toString() : "User" + userId;
         roomService.setUsername(userId, username);
-
         Set<Long> others = roomService.joinRoom(roomId, userId);
-        System.out.println("[RTC] User " + username + "(" + userId + ") joined room " + roomId + ", others: " + others);
 
         for (Long otherId : others) {
             messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
@@ -57,10 +55,8 @@ public class SignalingHandler {
     }
 
     private void broadcastVoiceUsers(Long roomId) {
-        var users = roomService.getRoomUsers(roomId);
-        System.out.println("[RTC] broadcast voice-users to /topic/channel." + roomId + " users=" + users);
         messagingTemplate.convertAndSend("/topic/channel." + roomId,
-                Map.of("type", "voice-users", "users", users));
+                Map.of("type", "voice-users", "users", roomService.getRoomUsers(roomId)));
     }
 
     @MessageMapping("/rtc.offer")

@@ -77,7 +77,6 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     function setVoiceUsers(users: VoiceUser[]) {
-        console.log('[RTC] setVoiceUsers:', users)
         voiceUsers.value = users || []
     }
 
@@ -123,6 +122,7 @@ export const useRtcStore = defineStore('rtc', () => {
             if (peer) {
                 peer.iceState = pc.iceConnectionState
                 remotePeers.value = {...remotePeers.value}
+                console.log(`[RTC] P2P ${username}: ${pc.iceConnectionState}`)
             }
         }
         pc.onconnectionstatechange = () => {
