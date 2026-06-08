@@ -87,7 +87,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
           <IconVoice v-if="c.type === 'VOICE'" class="ch-icon voice-icon" />
           <IconMessage v-else class="ch-icon" />
           <span class="ch-name">{{ c.name }}</span>
-          <a-button v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
+          <a-button v-if="c.type === 'VOICE'"
                     class="ch-chat-btn" type="text" size="mini"
                     @click.stop="openVoiceChat(c)" title="Open text chat">
             <template #icon><IconMessage /></template>
