@@ -43,7 +43,6 @@ import dev.dubhe.gugle.chat.android.data.Channel
 import dev.dubhe.gugle.chat.android.data.Message
 import dev.dubhe.gugle.chat.android.viewmodel.ChatViewModel
 import io.noties.markwon.Markwon
-import io.noties.markwon.ext.tables.TablesPlugin
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.image.coil.CoilImagesPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
@@ -75,7 +74,7 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
     if (current == null && !showChannels) showChannels = true
 
     // Back button returns to channel list instead of exiting
-    BackHandler(enabled = !showChannels && current != null) {
+    BackHandler(enabled = !showChannels) {
         showChannels = true
         prevChannel = null
     }
@@ -221,7 +220,6 @@ fun MessageBubble(msg: Message) {
         Markwon.builder(ctx)
             .usePlugin(CoilImagesPlugin.create(ctx))
             .usePlugin(LinkifyPlugin.create())
-            .usePlugin(TablesPlugin.create(ctx))
             .usePlugin(StrikethroughPlugin.create())
             .build()
     }
