@@ -42,6 +42,9 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
     }
     if (current == null && showChannels == false) showChannels = true
 
+    // Back button returns to channel list instead of exiting
+    BackHandler(enabled = !showChannels) { showChannels = true }
+
     if (showChannels || current == null) {
         ChannelListScreen(channels, viewModel::selectChannel, onLogout)
     } else {
