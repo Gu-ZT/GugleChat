@@ -1,0 +1,147 @@
+package dev.dubhe.gugle.chat.android.viewmodel
+
+import android.app.Application
+import android.util.Log
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import dev.dubhe.gugle.chat.android.data.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
+
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
+    private val prefs = application.getSharedPreferences("guglechat", 0)
+
+    private fun buildBaseUrl(): String {
+        val custom = prefs.getString("backend_url", "") ?: ""
+        val url = if (custom.isNotEmpty()) custom else "http://10.0.2.2:3250"
+        return if (url.endsWith("/")) url else "$url/"
+    }
+
+    private fun buildApi(): ApiService {
+        val tok = prefs.getString("token", "") ?: ""
+        val client = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val req = chain.request().newBuilder()
+                    .header("Authorization", "Bearer $tok").build()
+                chain.proceed(req)
+            }.build()
+        return Retrofit.Builder()
+            .baseUrl(buildBaseUrl())
+            .client(client).addConverterFactory(GsonConverterFactory.create()).build()
+            .create(ApiService::class.java)
+    }
+
+    var wsManager: WebSocketManager? = null
+
+    private val _token = MutableStateFlow<String?>(prefs.getString("token", null))
+    val token = _token.asStateFlow()
+    private val _channels = MutableStateFlow<List<Channel>>(emptyList())
+    val channels = _channels.asStateFlow()
+    private val _messages = MutableStateFlow<List<Message>>(emptyList())
+    val messages = _messages.asStateFlow()
+    private val _currentChannel = MutableStateFlow<Channel?>(null)
+    val currentChannel = _currentChannel.asStateFlow()
+    private val _loggedIn = MutableStateFlow(prefs.getString("token", null) != null)
+    val loggedIn = _loggedIn.asStateFlow()
+
+    fun setBackendUrl(url: String) { prefs.edit().putString("backend_url", url).commit() }
+
+    fun login(username: String, password: String, backendUrl: String, onError: (String) -> Unit) {
+        if (backendUrl.isNotEmpty()) setBackendUrl(backendUrl)
+        val api = buildApi()
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { api.login(LoginRequest(username, password)).execute() }
+                if (res.isSuccessful && res.body()?.code == 200) {
+                    val data = res.body()!!.data
+                    prefs.edit().putString("token", data.token).commit()
+                    _token.value = data.token
+                    _loggedIn.value = true
+                    connectWs()
+                    loadChannels(api)
+                } else onError(res.body()?.message ?: "Login failed")
+            } catch (e: Exception) {
+                Log.e("GugleChat", "Login error", e)
+                onError(e.message ?: e.toString())
+            }
+        }
+    }
+
+    fun register(username: String, email: String, password: String, backendUrl: String, onError: (String) -> Unit) {
+        if (backendUrl.isNotEmpty()) setBackendUrl(backendUrl)
+        val api = buildApi()
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { api.register(RegisterRequest(username, email, password)).execute() }
+                if (res.isSuccessful && res.body()?.code == 200) {
+                    val data = res.body()!!.data
+                    prefs.edit().putString("token", data.token).commit()
+                    _token.value = data.token
+                    _loggedIn.value = true
+                    connectWs()
+                    loadChannels(api)
+                } else onError(res.body()?.message ?: "Register failed")
+            } catch (e: Exception) {
+                Log.e("GugleChat", "Register error", e)
+                onError(e.message ?: e.toString())
+            }
+        }
+    }
+
+    fun logout() {
+        wsManager?.disconnect()
+        prefs.edit().remove("token").apply()
+        _token.value = null
+        _loggedIn.value = false
+    }
+
+    fun loadChannels(api: ApiService = buildApi()) {
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { api.getChannels().execute() }
+                if (res.isSuccessful && res.body()?.code == 200) _channels.value = res.body()!!.data
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun selectChannel(channel: Channel) {
+        _currentChannel.value = channel
+        wsManager?.subscribe(channel.id)
+        loadMessages(channel.id)
+    }
+
+    fun loadMessages(channelId: Long, before: Long? = null) {
+        val api = buildApi()
+        viewModelScope.launch {
+            try {
+                val res = withContext(Dispatchers.IO) { api.getMessages(channelId, before).execute() }
+                if (res.isSuccessful && res.body()?.code == 200) _messages.value = res.body()!!.data.reversed()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun sendMessage(content: String) {
+        val ch = _currentChannel.value ?: return
+        wsManager?.sendMessage(ch.id, content)
+    }
+
+    private fun connectWs() {
+        val t = _token.value ?: return
+        val url = buildBaseUrl()
+        wsManager = WebSocketManager(
+            baseUrl = url.trimEnd('/'),
+            token = t,
+            onMessage = { msg -> _messages.value = _messages.value + msg },
+            onVoiceUsers = { _, _ -> }
+        )
+        wsManager?.connect()
+    }
+}

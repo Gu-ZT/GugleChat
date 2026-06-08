@@ -1,23 +1,31 @@
+import router from '@ohos.router';
+import preferences from '@ohos.data.preferences';
+
 @Entry
 @Component
 struct Index {
-  @State message: string = 'Hello World';
+  @State ready: boolean = false;
+
+  async aboutToAppear() {
+    const prefs = await preferences.getPreferences(getContext(), 'guglechat');
+    const token = await prefs.get('token', '') as string;
+    if (token) {
+      router.replaceUrl({ url: 'pages/MainPage' });
+    } else {
+      router.replaceUrl({ url: 'pages/LoginPage' });
+    }
+    this.ready = true;
+  }
 
   build() {
-    RelativeContainer() {
-      Text(this.message)
-        .id('HelloWorld')
-        .fontSize($r('app.float.page_text_font_size'))
+    Column() {
+      Text('GugleChat')
+        .fontSize(28)
         .fontWeight(FontWeight.Bold)
-        .alignRules({
-          center: { anchor: '__container__', align: VerticalAlign.Center },
-          middle: { anchor: '__container__', align: HorizontalAlign.Center }
-        })
-        .onClick(() => {
-          this.message = 'Welcome';
-        })
+        .fontColor('#FFFFFF')
     }
-    .height('100%')
-    .width('100%')
+    .width('100%').height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#313338')
   }
 }
