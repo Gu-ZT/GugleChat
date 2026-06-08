@@ -3,16 +3,13 @@ import { watch, ref, nextTick } from 'vue'
 import { useChannelStore } from '@/stores/channel'
 import { useMessageStore } from '@/stores/message'
 import { useWebSocketStore } from '@/stores/websocket'
-import { useRtcStore } from '@/stores/rtc'
-import { IconNotification, IconPhone } from '@arco-design/web-vue/es/icon'
+import { IconNotification } from '@arco-design/web-vue/es/icon'
 import MessageBubble from './MessageBubble.vue'
 import ChatInput from './ChatInput.vue'
-import VoiceChannel from '@/components/voice/VoiceChannel.vue'
 
 const channelStore = useChannelStore()
 const messageStore = useMessageStore()
 const wsStore = useWebSocketStore()
-const rtcStore = useRtcStore()
 const container = ref<HTMLElement | null>(null)
 
 watch(() => channelStore.currentChannelId, async (id) => {
@@ -30,15 +27,11 @@ function scrollBottom() {
   <div class="chat-area">
     <div class="chat-header">
       <h3>
-        <IconNotification v-if="channelStore.currentChannel?.type === 'VOICE'" />
-        <span v-else>#</span>
+        <IconNotification v-if="channelStore.currentChannel?.type === 'VOICE'" class="ch-icon" />
+        <span v-else class="ch-hash">#</span>
         {{ channelStore.currentChannel?.name }}
       </h3>
-      <span class="chat-type">{{ channelStore.currentChannel?.type === 'VOICE' ? 'Voice Channel' : 'Text Channel' }}</span>
-      <a-button v-if="channelStore.currentChannel?.type === 'VOICE' && !rtcStore.inCall"
-                type="primary" size="small" @click="rtcStore.startCall(channelStore.currentChannelId!)">
-        Join Call
-      </a-button>
+      <span class="chat-type">{{ channelStore.currentChannel?.type === 'VOICE' ? 'Voice · Chat' : 'Text Channel' }}</span>
     </div>
 
     <div ref="container" class="messages-container">
@@ -51,15 +44,14 @@ function scrollBottom() {
     <div class="chat-input-wrapper">
       <ChatInput :channel-id="channelStore.currentChannelId || 0" />
     </div>
-
-    <VoiceChannel />
   </div>
 </template>
 
 <style scoped>
 .chat-area { flex: 1; display: flex; flex-direction: column; height: 100%; }
 .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--color-border-2); display: flex; align-items: center; gap: 12px; }
-.chat-header h3 { margin: 0; font-size: 16px; }
+.chat-header h3 { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+.ch-icon, .ch-hash { font-size: 18px; color: var(--color-text-3); }
 .chat-type { font-size: 12px; color: var(--color-text-3); }
 .messages-container { flex: 1; overflow-y: auto; padding: 16px 20px; }
 .empty-messages { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--color-text-3); }

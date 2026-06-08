@@ -4,12 +4,12 @@ import dev.dubhe.gugle.chat.signaling.service.RoomService;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Controller
 public class SignalingHandler {
@@ -23,21 +23,23 @@ public class SignalingHandler {
     }
 
     @MessageMapping("/rtc.join/{roomId}")
-    public void joinRoom(@DestinationVariable Long roomId, Principal principal) {
+    public void joinRoom(@DestinationVariable Long roomId, Principal principal,
+                         SimpMessageHeaderAccessor accessor) {
         Long userId = Long.parseLong(principal.getName());
+        Object uname = accessor.getSessionAttributes() != null
+                ? accessor.getSessionAttributes().get("username") : null;
+        String username = uname != null ? uname.toString() : "User" + userId;
+
         Set<Long> others = roomService.joinRoom(roomId, userId);
 
-        // Notify existing members about the new user
         for (Long otherId : others) {
-            messagingTemplate.convertAndSendToUser(
-                    otherId.toString(), "/queue/rtc",
-                    Map.of("type", "user-joined", "userId", userId));
+            messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
+                    Map.of("type", "user-joined", "userId", userId, "username", username));
         }
-
-        // Send the new user the list of existing members
-        messagingTemplate.convertAndSendToUser(
-                userId.toString(), "/queue/rtc",
+        messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/rtc",
                 Map.of("type", "room-users", "users", others));
+
+        broadcastVoiceUsers(roomId);
     }
 
     @MessageMapping("/rtc.leave/{roomId}")
@@ -46,33 +48,39 @@ public class SignalingHandler {
         Set<Long> remaining = roomService.leaveRoom(userId);
 
         for (Long otherId : remaining) {
-            messagingTemplate.convertAndSendToUser(
-                    otherId.toString(), "/queue/rtc",
+            messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
                     Map.of("type", "user-left", "userId", userId));
         }
+        broadcastVoiceUsers(roomId);
+    }
+
+    private void broadcastVoiceUsers(Long roomId) {
+        Set<Long> members = roomService.getRoomMembers(roomId);
+        messagingTemplate.convertAndSend("/topic/channel." + roomId,
+                Map.of("type", "voice-users", "users", members));
     }
 
     @MessageMapping("/rtc.offer")
     public void handleOffer(@Payload Map<String, Object> payload, Principal principal) {
-        Long targetId = Long.valueOf(payload.get("target").toString());
-        Long senderId = Long.parseLong(principal.getName());
-        messagingTemplate.convertAndSendToUser(targetId.toString(), "/queue/rtc",
-                Map.of("type", "offer", "sdp", payload.get("sdp"), "userId", senderId));
+        messagingTemplate.convertAndSendToUser(
+                payload.get("target").toString(), "/queue/rtc",
+                Map.of("type", "offer", "sdp", payload.get("sdp"),
+                       "userId", Long.parseLong(principal.getName())));
     }
 
     @MessageMapping("/rtc.answer")
     public void handleAnswer(@Payload Map<String, Object> payload, Principal principal) {
-        Long targetId = Long.valueOf(payload.get("target").toString());
-        Long senderId = Long.parseLong(principal.getName());
-        messagingTemplate.convertAndSendToUser(targetId.toString(), "/queue/rtc",
-                Map.of("type", "answer", "sdp", payload.get("sdp"), "userId", senderId));
+        messagingTemplate.convertAndSendToUser(
+                payload.get("target").toString(), "/queue/rtc",
+                Map.of("type", "answer", "sdp", payload.get("sdp"),
+                       "userId", Long.parseLong(principal.getName())));
     }
 
     @MessageMapping("/rtc.ice-candidate")
     public void handleIceCandidate(@Payload Map<String, Object> payload, Principal principal) {
-        Long targetId = Long.valueOf(payload.get("target").toString());
-        Long senderId = Long.parseLong(principal.getName());
-        messagingTemplate.convertAndSendToUser(targetId.toString(), "/queue/rtc",
-                Map.of("type", "ice-candidate", "candidate", payload.get("candidate"), "userId", senderId));
+        messagingTemplate.convertAndSendToUser(
+                payload.get("target").toString(), "/queue/rtc",
+                Map.of("type", "ice-candidate", "candidate", payload.get("candidate"),
+                       "userId", Long.parseLong(principal.getName())));
     }
 }

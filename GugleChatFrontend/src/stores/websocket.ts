@@ -54,6 +54,12 @@ export const useWebSocketStore = defineStore('websocket', () => {
     client.subscribe(`/topic/channel.${channelId}`, (message) => {
       const body = JSON.parse(message.body)
       if (body.type === 'DELETE') msgStore.removeMessage(body.messageId)
+      else if (body.type === 'voice-users') {
+        // Handled by RTC store via rtcHandler or direct store update
+        import('./rtc').then(m => {
+          m.useRtcStore().setVoiceUsers((body.users as number[]) || [])
+        })
+      }
       else msgStore.addMessage(body as Message)
     })
   }

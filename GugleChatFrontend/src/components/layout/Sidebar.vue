@@ -4,18 +4,21 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
-import { IconPlus, IconNotification, IconSettings, IconPoweroff } from '@arco-design/web-vue/es/icon'
+import { useRtcStore } from '@/stores/rtc'
+import { IconPlus, IconNotification, IconSettings, IconPoweroff, IconUser } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const channelStore = useChannelStore()
 const wsStore = useWebSocketStore()
+const rtcStore = useRtcStore()
 
 const showCreate = ref(false)
 const newName = ref('')
 const newType = ref<ChannelType>('TEXT')
 const creating = ref(false)
+let clickTimer: ReturnType<typeof setTimeout> | null = null
 
 async function handleCreate() {
   if (!newName.value.trim()) return
@@ -28,7 +31,24 @@ async function handleCreate() {
   } finally { creating.value = false }
 }
 
-function selectChannel(id: number) { channelStore.selectChannel(id); wsStore.subscribeToChannel(id) }
+function handleChannelClick(c: { id: number; type: ChannelType }) {
+  if (c.type === 'VOICE') {
+    // Double-click detection for voice channels
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+      // Double-click: join voice call
+      rtcStore.startCall(c.id)
+      wsStore.subscribeToChannel(c.id)
+      return
+    }
+    clickTimer = setTimeout(() => { clickTimer = null }, 300)
+  }
+  // Single-click: switch to channel (text view)
+  channelStore.selectChannel(c.id)
+  wsStore.subscribeToChannel(c.id)
+}
+
 function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push('/login') }
 </script>
 
@@ -44,13 +64,27 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         <span>CHANNELS</span>
         <a-button size="mini" @click="showCreate = true"><IconPlus /></a-button>
       </div>
-      <div v-for="c in channelStore.channels" :key="c.id"
-           class="channel-item" :class="{ active: c.id === channelStore.currentChannelId }"
-           @click="selectChannel(c.id)">
-        <IconNotification v-if="c.type === 'VOICE'" class="ch-icon" />
-        <span v-else class="ch-icon">#</span>
-        <span class="ch-name">{{ c.name }}</span>
-        <a-tag size="small" :color="c.type === 'VOICE' ? 'green' : 'arcoblue'">{{ c.type }}</a-tag>
+      <div v-for="c in channelStore.channels" :key="c.id">
+        <div class="channel-item"
+             :class="{
+               active: c.id === channelStore.currentChannelId,
+               'voice-active': rtcStore.activeRoomId === c.id
+             }"
+             @click="handleChannelClick(c)">
+          <IconNotification v-if="c.type === 'VOICE'" class="ch-icon" />
+          <span v-else class="ch-icon ch-hash">#</span>
+          <span class="ch-name">{{ c.name }}</span>
+          <span v-if="rtcStore.activeRoomId === c.id" class="voice-dot" title="Connected" />
+          <a-tag size="small" :color="c.type === 'VOICE' ? 'green' : 'arcoblue'">{{ c.type }}</a-tag>
+        </div>
+        <!-- Voice users under voice channel -->
+        <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id && rtcStore.voiceUsers.size > 0"
+             class="voice-users-list">
+          <div v-for="uid in rtcStore.voiceUsers" :key="uid" class="voice-user-item">
+            <IconUser class="vu-icon" />
+            <span>{{ uid === authStore.user?.id ? 'You' : 'User ' + uid }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -80,6 +114,12 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .channel-item:hover { background: rgba(255,255,255,.05); }
 .channel-item.active { background: rgba(255,255,255,.1); }
 .ch-icon { font-size: 16px; }
+.ch-hash { font-weight: 700; }
 .ch-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; }
+.voice-active { border-left: 3px solid #22c55e; }
+.voice-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.voice-users-list { padding: 2px 16px 4px 36px; }
+.voice-user-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #22c55e; padding: 2px 0; }
+.vu-icon { font-size: 12px; }
 .sidebar-footer { padding: 12px 16px; border-top: 1px solid #2a2a4a; display: flex; justify-content: space-between; }
 </style>

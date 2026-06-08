@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 export interface RemotePeer {
   userId: number
+  username: string
   stream: MediaStream | null
   pc: RTCPeerConnection
 }
@@ -10,122 +11,115 @@ export interface RemotePeer {
 export const useRtcStore = defineStore('rtc', () => {
   const localStream = ref<MediaStream | null>(null)
   const remotePeers = ref<Record<number, RemotePeer>>({})
-  const inCall = ref(false)
-  const currentRoomId = ref<number | null>(null)
-  const videoEnabled = ref(true)
+  const activeRoomId = ref<number | null>(null)
+  const videoEnabled = ref(false)
   const audioEnabled = ref(true)
+  const voiceUsers = ref<Set<number>>(new Set())
 
   const iceServers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
   ]
 
-  function setLocalStream(stream: MediaStream | null) {
-    localStream.value = stream
+  function setVoiceUsers(ids: number[]) {
+    voiceUsers.value = new Set(ids)
   }
 
-  function addRemotePeer(userId: number, pc: RTCPeerConnection) {
-    remotePeers.value = { ...remotePeers.value, [userId]: { userId, stream: null, pc } }
+  function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
+    remotePeers.value = { ...remotePeers.value, [userId]: { userId, username, stream: null, pc } }
   }
 
   function setRemoteStream(userId: number, stream: MediaStream | null) {
     const peer = remotePeers.value[userId]
-    if (peer) {
-      peer.stream = stream
-      remotePeers.value = { ...remotePeers.value } // trigger reactivity
-    }
+    if (peer) { peer.stream = stream; remotePeers.value = { ...remotePeers.value } }
   }
 
   function removeRemotePeer(userId: number) {
     const peer = remotePeers.value[userId]
     if (peer) {
       peer.pc.close()
-      const next = { ...remotePeers.value }
-      delete next[userId]
-      remotePeers.value = next
+      const next = { ...remotePeers.value }; delete next[userId]; remotePeers.value = next
     }
   }
 
-  function createPeerConnection(userId: number): RTCPeerConnection {
+  function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
     const pc = new RTCPeerConnection({ iceServers })
-    addRemotePeer(userId, pc)
+    addRemotePeer(targetId, username, pc)
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        sendSignaling('rtc.ice-candidate', {
-          target: userId,
-          candidate: event.candidate,
-        })
+        sendSignaling('rtc.ice-candidate', { target: targetId, candidate: event.candidate })
       }
     }
+    pc.ontrack = (event) => { setRemoteStream(targetId, event.streams[0]) }
 
-    pc.ontrack = (event) => {
-      setRemoteStream(userId, event.streams[0])
-    }
-
-    // Add local tracks
     if (localStream.value) {
-      localStream.value.getTracks().forEach(track => {
-        pc.addTrack(track, localStream.value!)
-      })
+      localStream.value.getTracks().forEach(track => pc.addTrack(track, localStream.value!))
     }
-
     return pc
   }
 
-  function toggleVideo() {
-    if (localStream.value) {
-      videoEnabled.value = !videoEnabled.value
-      localStream.value.getVideoTracks().forEach(t => t.enabled = videoEnabled.value)
-    }
-  }
-
-  function toggleAudio() {
-    if (localStream.value) {
-      audioEnabled.value = !audioEnabled.value
-      localStream.value.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
-    }
-  }
-
   async function startCall(roomId: number) {
-    currentRoomId.value = roomId
-    inCall.value = true
+    if (activeRoomId.value) endCall()
+    activeRoomId.value = roomId
     try {
-      localStream.value = await navigator.mediaDevices.getUserMedia({
-        video: true, audio: true,
-      })
+      localStream.value = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
     } catch {
       localStream.value = await navigator.mediaDevices.getUserMedia({ audio: true })
     }
+    videoEnabled.value = false
+    audioEnabled.value = true
     sendSignaling('rtc.join', { roomId })
   }
 
   function endCall() {
     Object.values(remotePeers.value).forEach(p => p.pc.close())
     remotePeers.value = {}
+    voiceUsers.value = new Set()
     if (localStream.value) {
       localStream.value.getTracks().forEach(t => t.stop())
       localStream.value = null
     }
-    if (currentRoomId.value) {
-      sendSignaling('rtc.leave', { roomId: currentRoomId.value })
+    if (activeRoomId.value) {
+      sendSignaling('rtc.leave', { roomId: activeRoomId.value })
     }
-    inCall.value = false
-    currentRoomId.value = null
+    activeRoomId.value = null
+    videoEnabled.value = false
   }
 
-  // helper: send signaling via STOMP (injected after store creation)
+  async function toggleVideo() {
+    if (!videoEnabled.value) {
+      if (!localStream.value) return
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        localStream.value.getTracks().forEach(t => t.stop())
+        localStream.value = newStream
+        videoEnabled.value = true
+        // Replace tracks on existing connections
+        const videoTrack = newStream.getVideoTracks()[0]
+        Object.values(remotePeers.value).forEach(peer => {
+          const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+          if (sender && videoTrack) sender.replaceTrack(videoTrack)
+          else if (videoTrack) peer.pc.addTrack(videoTrack, newStream)
+        })
+      } catch { /* camera denied */ }
+    } else {
+      localStream.value?.getVideoTracks().forEach(t => t.stop())
+      videoEnabled.value = false
+    }
+  }
+
+  function toggleAudio() {
+    audioEnabled.value = !audioEnabled.value
+    localStream.value?.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
+  }
+
   let sendSignaling: (type: string, payload: Record<string, unknown>) => void = () => {}
 
-  function setSendSignaling(fn: typeof sendSignaling) {
-    sendSignaling = fn
-  }
-
   return {
-    localStream, remotePeers, inCall, currentRoomId,
-    videoEnabled, audioEnabled,
-    setLocalStream, addRemotePeer, setRemoteStream, removeRemotePeer,
-    createPeerConnection,
-    toggleVideo, toggleAudio, startCall, endCall,
-    setSendSignaling, iceServers,
+    localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers,
+    setVoiceUsers,
+    addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
+    startCall, endCall, toggleVideo, toggleAudio,
+    setSendSignaling: (fn: typeof sendSignaling) => { sendSignaling = fn },
   }
 })

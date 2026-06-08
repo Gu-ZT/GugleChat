@@ -5,6 +5,7 @@ import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import ChatArea from '@/components/chat/ChatArea.vue'
+import VoiceChannel from '@/components/voice/VoiceChannel.vue'
 
 const authStore = useAuthStore()
 const channelStore = useChannelStore()
@@ -29,6 +30,7 @@ onUnmounted(() => wsStore.disconnect())
         <p>Select a channel or create a new one to start chatting</p>
       </div>
     </main>
+    <VoiceChannel />
   </div>
 </template>
 
