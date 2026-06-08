@@ -7,6 +7,7 @@ export interface RemotePeer {
     stream: MediaStream | null
     pc: RTCPeerConnection
     iceBuffer: RTCIceCandidateInit[]
+    audioEl: HTMLAudioElement | null
     iceState: RTCIceConnectionState
     connState: RTCPeerConnectionState
 }
@@ -93,7 +94,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
         remotePeers.value = {...remotePeers.value, [userId]: {
-            userId, username, stream: null, pc, iceBuffer: [],
+            userId, username, stream: null, pc, iceBuffer: [], audioEl: null,
             iceState: 'new', connState: 'new',
         }}
     }
@@ -109,6 +110,8 @@ export const useRtcStore = defineStore('rtc', () => {
     function removeRemotePeer(userId: number) {
         const peer = remotePeers.value[userId]
         if (peer) {
+            peer.audioEl?.pause()
+            peer.audioEl = null
             peer.pc.close()
             const next = {...remotePeers.value};
             delete next[userId];
@@ -128,12 +131,17 @@ export const useRtcStore = defineStore('rtc', () => {
         pc.ontrack = (event) => {
             console.log(`[RTC] ontrack from ${username}:`, event.track.kind)
             setRemoteStream(targetId, event.streams[0])
-            // Play audio directly
             const stream = event.streams[0]
             if (stream) {
+                const peer = remotePeers.value[targetId]
                 const audio = new Audio()
                 audio.srcObject = stream
+                audio.autoplay = true
                 audio.play().catch(() => {})
+                if (peer) {
+                    peer.audioEl = audio // keep reference so GC doesn't kill it
+                    remotePeers.value = {...remotePeers.value}
+                }
             }
         }
         pc.oniceconnectionstatechange = () => {
