@@ -6,10 +6,10 @@ const api = axios.create({ timeout: 15000, headers: { 'Content-Type': 'applicati
 api.interceptors.request.use((config) => {
   // Dynamic backend URL from localStorage
   const backend = localStorage.getItem('guglechat_backend_url') || ''
-  if (backend && !config.url?.startsWith('http')) {
-    config.url = backend + config.url
+  const base = backend ? backend + '/api' : '/api'
+  if (!config.url?.startsWith('http')) {
+    config.url = base + config.url
   }
-  // If no custom backend, rely on Vite proxy (dev) or same-origin (production)
 
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
