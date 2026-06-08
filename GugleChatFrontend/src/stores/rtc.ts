@@ -14,7 +14,8 @@ export const useRtcStore = defineStore('rtc', () => {
   const activeRoomId = ref<number | null>(null)
   const videoEnabled = ref(false)
   const audioEnabled = ref(true)
-  const voiceUsers = ref<Set<number>>(new Set())
+  interface VoiceUser { userId: number; username: string }
+  const voiceUsers = ref<VoiceUser[]>([])
   const showVoiceChat = ref(false)
 
   function getIceServers(): RTCIceServer[] {
@@ -30,8 +31,8 @@ export const useRtcStore = defineStore('rtc', () => {
     return servers
   }
 
-  function setVoiceUsers(ids: number[]) {
-    voiceUsers.value = new Set(ids)
+  function setVoiceUsers(users: VoiceUser[]) {
+    voiceUsers.value = users || []
   }
 
   function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
@@ -84,7 +85,7 @@ export const useRtcStore = defineStore('rtc', () => {
   function endCall() {
     Object.values(remotePeers.value).forEach(p => p.pc.close())
     remotePeers.value = {}
-    voiceUsers.value = new Set()
+    voiceUsers.value = []
     if (localStream.value) {
       localStream.value.getTracks().forEach(t => t.stop())
       localStream.value = null

@@ -29,6 +29,7 @@ public class SignalingHandler {
         Object uname = accessor.getSessionAttributes() != null
                 ? accessor.getSessionAttributes().get("username") : null;
         String username = uname != null ? uname.toString() : "User" + userId;
+        roomService.setUsername(userId, username);
 
         Set<Long> others = roomService.joinRoom(roomId, userId);
 
@@ -55,9 +56,8 @@ public class SignalingHandler {
     }
 
     private void broadcastVoiceUsers(Long roomId) {
-        Set<Long> members = roomService.getRoomMembers(roomId);
         messagingTemplate.convertAndSend("/topic/channel." + roomId,
-                Map.of("type", "voice-users", "users", members));
+                Map.of("type", "voice-users", "users", roomService.getRoomUsers(roomId)));
     }
 
     @MessageMapping("/rtc.offer")

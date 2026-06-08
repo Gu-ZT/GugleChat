@@ -96,22 +96,18 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
                     @click.stop="openVoiceChat(c)" title="Open text chat">
             <template #icon><IconMessage /></template>
           </a-button>
-          <span v-if="c.type === 'VOICE' && rtcStore.voiceUsers.size > 0 && rtcStore.activeRoomId === c.id"
+          <span v-if="c.type === 'VOICE' && rtcStore.voiceUsers.length > 0 && rtcStore.activeRoomId === c.id"
                 class="voice-count">
-            <span class="count-dot" />{{ rtcStore.voiceUsers.size }}
+            <span class="count-dot" />{{ rtcStore.voiceUsers.length }}
           </span>
         </div>
 
         <!-- Connected voice users -->
         <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
              class="voice-users-list">
-          <div class="voice-user-item">
-            <IconNotification class="vu-icon speaking" />
-            <span class="vu-name">{{ authStore.user?.username }}</span>
-          </div>
-          <div v-for="(peer, uid) in rtcStore.remotePeers" :key="uid" class="voice-user-item">
+          <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="voice-user-item">
             <IconUser class="vu-icon" />
-            <span class="vu-name">{{ peer.username }}</span>
+            <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}</span>
           </div>
         </div>
       </template>
