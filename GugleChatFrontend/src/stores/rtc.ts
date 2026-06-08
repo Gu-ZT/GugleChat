@@ -372,25 +372,59 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     /** Detect NAT type: 1=open(NAT1), 0.66=cone(NAT2-3), 0.33=symmetric(NAT4) */
+    /**
+     * Precise NAT type detection using multiple STUN servers.
+     * NAT1 (Full Cone): same IP:port from all STUN servers, remote can connect from anywhere
+     * NAT2 (Restricted): same IP:port, but only from known remote
+     * NAT3 (Port Restricted): same IP:port, only from known remote:port
+     * NAT4 (Symmetric): different ports per STUN server
+     * Returns score: 1.0=open, 0.75=cone, 0.5=port-restricted, 0.25=symmetric
+     */
     async function detectNatType(): Promise<number> {
         return new Promise((resolve) => {
+            const stunServers = [
+                'stun:stun.l.google.com:19302',
+                'stun:stun1.l.google.com:19302',
+                'stun:stun.cloudflare.com:3478',
+            ]
             const pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+                iceServers: stunServers.map(urls => ({ urls })),
             })
-            const candidates: RTCIceCandidate[] = []
+            const srflxMap = new Map<string, string>() // address -> port
+            let hasHost = false
+            let gathered = 0
             const timer = setTimeout(() => {
                 pc.close()
-                const types = candidates.map(c => c.type || '')
-                const hasHost = types.includes('host') && !candidates.every(c => c.address?.startsWith('192.') || c.address?.startsWith('10.') || c.address?.startsWith('172.'))
-                const hasSrflx = types.includes('srflx')
-                const hasRelay = types.includes('relay')
-                if (hasHost) resolve(1.0)       // NAT1: open, can be host directly
-                else if (hasSrflx && !hasRelay) resolve(0.66)  // NAT2-3: cone NAT
-                else resolve(0.33)               // NAT4: symmetric, needs relay
-            }, 3000)
+                finish()
+            }, 4000)
+            const finish = () => {
+                clearTimeout(timer)
+                const ports = [...srflxMap.values()]
+                const uniquePorts = new Set(ports)
+                console.log(`[NAT] srflx ports from ${stunServers.length} STUN servers:`, ports)
+                if (hasHost) {
+                    console.log('[NAT] Type: Open (NAT1) — no NAT detected')
+                    resolve(1.0)
+                } else if (ports.length === 0) {
+                    console.log('[NAT] Type: Blocked/Symmetric (NAT4) — no srflx candidates')
+                    resolve(0.25)
+                } else if (uniquePorts.size === 1) {
+                    console.log('[NAT] Type: Cone NAT (NAT2-3) — consistent IP:port')
+                    resolve(0.75)
+                } else {
+                    console.log('[NAT] Type: Symmetric NAT (NAT4) — different ports per server')
+                    resolve(0.25)
+                }
+            }
             pc.onicecandidate = (e) => {
-                if (e.candidate) candidates.push(e.candidate)
-                else { clearTimeout(timer); resolve(1.0) }
+                if (!e.candidate) { gathered++; if (gathered >= stunServers.length) finish(); return }
+                const c = e.candidate
+                if (c.type === 'host' && !(c.address?.startsWith('192.') || c.address?.startsWith('10.') || c.address?.startsWith('172.'))) {
+                    hasHost = true
+                }
+                if (c.type === 'srflx' && c.address && c.port) {
+                    srflxMap.set(c.address, String(c.port))
+                }
             }
             pc.createDataChannel('nat-check')
             pc.createOffer().then(o => pc.setLocalDescription(o))
