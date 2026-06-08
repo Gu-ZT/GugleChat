@@ -29,11 +29,20 @@ onMounted(async () => {
   await authStore.fetchMe()
   await channelStore.fetchChannels()
   wsStore.connect()
-  // Subscribe to all channel topics and sync voice users
-  for (const ch of channelStore.channels) {
-    wsStore.subscribeToChannel(ch.id)
-  }
-  await syncVoiceUsers()
+  // Wait for WebSocket to connect, then subscribe and sync
+  await new Promise<void>(resolve => {
+    const check = () => {
+      if (wsStore.connected) {
+        for (const ch of channelStore.channels) {
+          wsStore.subscribeToChannel(ch.id)
+        }
+        syncVoiceUsers().then(resolve)
+      } else {
+        setTimeout(check, 200)
+      }
+    }
+    check()
+  })
 })
 
 async function syncVoiceUsers() {

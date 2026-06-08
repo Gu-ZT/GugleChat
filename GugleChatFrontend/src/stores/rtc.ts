@@ -142,6 +142,13 @@ export const useRtcStore = defineStore('rtc', () => {
         const pc = new RTCPeerConnection({iceServers: getIceServers()})
         addRemotePeer(targetId, username, pc)
 
+        pc.onnegotiationneeded = async () => {
+            try {
+                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
+                await pc.setLocalDescription(offer)
+                sendSignaling('rtc.offer', { target: targetId, sdp: offer })
+            } catch (e) { /* ignore */ }
+        }
         pc.onicecandidate = (event) => {
             if (event.candidate) {
                 sendSignaling('rtc.ice-candidate', {target: targetId, candidate: event.candidate})
@@ -277,7 +284,11 @@ export const useRtcStore = defineStore('rtc', () => {
             audioInputs.value = devices
                 .filter(d => d.kind === 'audioinput' && d.deviceId)
                 .map(d => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 8)}` }))
-            if (!currentAudioDevice.value && audioInputs.value.length > 0) {
+            // Restore saved device, or fall back to default
+            const saved = localStorage.getItem('guglechat_audio_device')
+            if (saved && audioInputs.value.some(d => d.deviceId === saved)) {
+                currentAudioDevice.value = saved
+            } else if (audioInputs.value.length > 0) {
                 currentAudioDevice.value = audioInputs.value[0].deviceId
             }
         } catch {}
@@ -285,6 +296,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     async function switchAudioDevice(deviceId: string) {
         currentAudioDevice.value = deviceId
+        localStorage.setItem('guglechat_audio_device', deviceId)
         if (!activeRoomId.value) return
         try {
             const newStream = await navigator.mediaDevices.getUserMedia({

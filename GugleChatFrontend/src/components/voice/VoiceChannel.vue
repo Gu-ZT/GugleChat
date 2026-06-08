@@ -75,9 +75,13 @@ async function handleOffer(body: Record<string, unknown>) {
   const senderId = body.userId as number
   const senderName = (body.username as string) || 'User' + senderId
   try {
-    const pc = rtcStore.createPeerConnection(senderId, senderName)
+    // Reuse existing PC for renegotiation, or create new one
+    let pc = rtcStore.remotePeers[senderId]?.pc
+    if (!pc || pc.signalingState === 'closed') {
+      pc = rtcStore.createPeerConnection(senderId, senderName)
+    }
     await pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
-    // Flush buffered ICE after setting remote description
+    // Flush buffered ICE
     const peer = rtcStore.remotePeers[senderId]
     if (peer) {
       for (const c of peer.iceBuffer) {
@@ -85,12 +89,14 @@ async function handleOffer(body: Record<string, unknown>) {
       }
       peer.iceBuffer = []
     }
-    const answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-    const myName = authStore.user?.username || 'Me'
-    wsStore.sendSignaling('rtc.answer', { target: senderId, sdp: answer, username: myName })
+    if (body.sdp && (body.sdp as RTCSessionDescriptionInit).type === 'offer') {
+      const answer = await pc.createAnswer()
+      await pc.setLocalDescription(answer)
+      const myName = authStore.user?.username || 'Me'
+      wsStore.sendSignaling('rtc.answer', { target: senderId, sdp: answer, username: myName })
+    }
   } catch (e: any) {
-    if (e.name === 'InvalidStateError') return // ignore state errors
+    if (e.name === 'InvalidStateError') return
     throw e
   }
 }
