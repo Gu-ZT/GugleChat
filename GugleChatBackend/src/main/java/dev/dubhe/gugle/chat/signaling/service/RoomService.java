@@ -15,6 +15,14 @@ public class RoomService {
     private final Map<Long, Long> roomHosts = new ConcurrentHashMap<>();
     private final Map<Long, Double> userQualities = new ConcurrentHashMap<>();
 
+    public void setQuality(Long userId, double quality) {
+        userQualities.put(userId, quality);
+    }
+
+    public double getQuality(Long userId) {
+        return userQualities.getOrDefault(userId, 0.0);
+    }
+
     public Set<Long> joinRoom(Long roomId, Long userId, double quality) {
         userQualities.put(userId, quality);
         Long prev = userRooms.remove(userId);
@@ -69,13 +77,14 @@ public class RoomService {
         return rooms.getOrDefault(roomId, Collections.emptySet());
     }
 
-    /** Build user list with usernames for frontend display */
+    /** Build user list with usernames and quality for frontend display */
     public List<Map<String, Object>> getRoomUsers(Long roomId) {
         return getRoomMembers(roomId).stream()
                 .map(uid -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("userId", uid);
                     m.put("username", getUsername(uid));
+                    m.put("quality", getQuality(uid));
                     return m;
                 })
                 .toList();

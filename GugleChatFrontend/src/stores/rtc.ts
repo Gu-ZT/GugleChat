@@ -41,7 +41,8 @@ export const useRtcStore = defineStore('rtc', () => {
 
     interface VoiceUser {
         userId: number;
-        username: string
+        username: string;
+        quality: number;
     }
 
     interface AudioDevice {

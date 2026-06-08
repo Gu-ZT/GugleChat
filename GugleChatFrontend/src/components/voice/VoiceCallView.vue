@@ -35,6 +35,9 @@ const authStore = useAuthStore()
           <span class="vc-dot" :style="{ background: connStateColor(peer.iceState) }" />
           {{ connStateLabel(peer.iceState) }}
         </div>
+        <div class="vc-quality">
+          ⭐ {{ (rtcStore.voiceUsers.find(v => v.userId === uid)?.quality || 0).toFixed(1) }}
+        </div>
       </div>
 
       <!-- Waiting for others -->
@@ -76,6 +79,7 @@ const authStore = useAuthStore()
 .vc-name { font-size: 14px; color: #dbdee1; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .vc-status { font-size: 12px; color: #949ba4; display: flex; align-items: center; gap: 4px; }
 .vc-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+.vc-quality { font-size: 11px; color: #fbbf24; margin-top: 2px; }
 .vc-empty {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #949ba4; gap: 12px;

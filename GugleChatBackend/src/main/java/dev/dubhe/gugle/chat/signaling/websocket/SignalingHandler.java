@@ -31,6 +31,7 @@ public class SignalingHandler {
         if (payload != null && payload.get("quality") instanceof Number q) {
             quality = q.doubleValue();
         }
+        roomService.setQuality(userId, quality);
         Object uname = accessor.getSessionAttributes() != null
                 ? accessor.getSessionAttributes().get("username") : null;
         String username = uname != null ? uname.toString() : "User" + userId;

@@ -106,6 +106,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
             <span v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]" class="vu-state">
               {{ connStateLabel(rtcStore.remotePeers[u.userId].iceState) }}
             </span>
+            <span class="vu-quality">⭐{{ u.quality?.toFixed(1) || '?' }}</span>
           </div>
         </div>
       </template>
@@ -232,6 +233,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .vu-dot.vu-speaking { background: #22c55e !important; box-shadow: 0 0 6px #22c55e; }
 .vu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vu-state { font-size: 10px; color: #949ba4; margin-left: auto; }
+.vu-quality { font-size: 10px; color: #fbbf24; margin-left: auto; }
 
 .ch-chat-btn { opacity: 0; margin-left: auto; }
 .channel-item:hover .ch-chat-btn { opacity: 1; }
