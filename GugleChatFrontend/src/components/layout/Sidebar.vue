@@ -107,7 +107,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
              class="voice-users-list">
           <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="voice-user-item">
             <span class="vu-dot" :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }" />
-            <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}</span>
+            <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}{{ u.userId === rtcStore.hostId ? ' 👑' : '' }}</span>
             <span v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]" class="vu-state">
               {{ connStateLabel(rtcStore.remotePeers[u.userId].iceState) }}
             </span>

@@ -12,18 +12,25 @@ public class RoomService {
     private final Map<Long, Set<Long>> rooms = new ConcurrentHashMap<>();
     private final Map<Long, Long> userRooms = new ConcurrentHashMap<>();
     private final Map<Long, String> userNames = new ConcurrentHashMap<>();
+    private final Map<Long, Long> roomHosts = new ConcurrentHashMap<>();
 
     public Set<Long> joinRoom(Long roomId, Long userId) {
         Long prev = userRooms.remove(userId);
         if (prev != null && rooms.containsKey(prev)) {
             rooms.get(prev).remove(userId);
-            if (rooms.get(prev).isEmpty()) rooms.remove(prev);
+            if (rooms.get(prev).isEmpty()) { rooms.remove(prev); roomHosts.remove(prev); }
         }
         rooms.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(userId);
         userRooms.put(userId, roomId);
+        // First joiner becomes host
+        roomHosts.putIfAbsent(roomId, userId);
         Set<Long> others = new HashSet<>(rooms.get(roomId));
         others.remove(userId);
         return others;
+    }
+
+    public Long getHost(Long roomId) {
+        return roomHosts.get(roomId);
     }
 
     public void setUsername(Long userId, String username) {
@@ -40,7 +47,11 @@ public class RoomService {
             Set<Long> room = rooms.get(roomId);
             room.remove(userId);
             Set<Long> remaining = new HashSet<>(room);
-            if (room.isEmpty()) rooms.remove(roomId);
+            if (room.isEmpty()) { rooms.remove(roomId); roomHosts.remove(roomId); }
+            // If host left, pick next as host
+            else if (userId.equals(roomHosts.get(roomId))) {
+                roomHosts.put(roomId, remaining.iterator().next());
+            }
             return remaining;
         }
         return Collections.emptySet();

@@ -50,6 +50,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
     const voiceUsers = ref<VoiceUser[]>([])
     const showVoiceChat = ref(false)
+    const hostId = ref<number | null>(null)
     const speaking = ref(false)
     const monitoring = ref(false)
     const audioInputs = ref<AudioDevice[]>([])
@@ -136,9 +137,7 @@ export const useRtcStore = defineStore('rtc', () => {
             if (stream) {
                 const peer = remotePeers.value[targetId]
                 if (peer) {
-                    // Stop old audio if exists
-                    peer.audioEl?.pause()
-                    peer.audioEl?.remove()
+                    peer.audioEl?.pause(); peer.audioEl?.remove()
                 }
                 const audio = document.createElement('audio')
                 audio.srcObject = stream
@@ -147,10 +146,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 audio.style.display = 'none'
                 document.body.appendChild(audio)
                 audio.play().catch(e => console.warn('[RTC] audio play blocked:', e))
-                if (peer) {
-                    peer.audioEl = audio
-                    remotePeers.value = {...remotePeers.value}
-                }
+                if (peer) { peer.audioEl = audio; remotePeers.value = {...remotePeers.value} }
             }
         }
         pc.oniceconnectionstatechange = () => {
@@ -342,7 +338,7 @@ export const useRtcStore = defineStore('rtc', () => {
         localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
         setVoiceUsers,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
-        startCall, endCall, toggleVideo, toggleAudio, speaking, monitoring, setMonitoring,
+        hostId, startCall, endCall, toggleVideo, toggleAudio, speaking, monitoring, setMonitoring,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn

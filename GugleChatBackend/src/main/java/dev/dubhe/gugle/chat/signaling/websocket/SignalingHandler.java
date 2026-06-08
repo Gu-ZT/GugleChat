@@ -34,10 +34,12 @@ public class SignalingHandler {
 
         for (Long otherId : others) {
             messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
-                    Map.of("type", "user-joined", "userId", userId, "username", username));
+                    Map.of("type", "user-joined", "userId", userId, "username", username,
+                           "hostId", roomService.getHost(roomId)));
         }
         messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/rtc",
-                Map.of("type", "room-users", "users", others));
+                Map.of("type", "room-users", "users", others,
+                       "hostId", roomService.getHost(roomId)));
 
         broadcastVoiceUsers(roomId);
     }
@@ -56,7 +58,8 @@ public class SignalingHandler {
 
     private void broadcastVoiceUsers(Long roomId) {
         messagingTemplate.convertAndSend("/topic/channel." + roomId,
-                Map.of("type", "voice-users", "users", roomService.getRoomUsers(roomId)));
+                Map.of("type", "voice-users", "users", roomService.getRoomUsers(roomId),
+                       "hostId", roomService.getHost(roomId)));
     }
 
     @MessageMapping("/rtc.offer")
