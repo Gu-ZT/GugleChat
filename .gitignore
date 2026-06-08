@@ -1,2 +1,22 @@
+# IntelliJ IDEA
 *.iml
 .idea/
+
+# Gradle
+GugleChatBackend/build/
+GugleChatBackend/.gradle/
+
+# Node / Vite
+GugleChatFrontend/node_modules/
+GugleChatFrontend/dist/
+
+# Uploaded files
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local

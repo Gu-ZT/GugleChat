@@ -1,0 +1,105 @@
+logging:
+  level:
+    org.springframework: info
+  config: classpath:logback-spring.xml
+
+spring:
+  application:
+    name: gugle-chat
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      connection-timeout: 10000
+      validation-timeout: 3000
+      idle-timeout: 60000
+      login-timeout: 5
+      max-lifetime: 180000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      read-only: false
+  data:
+    redis:
+      timeout: 10000ms
+      lettuce:
+        pool:
+          min-idle: 8
+          max-idle: 12
+          max-active: 50
+          max-wait: 5000ms
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+
+server:
+  servlet:
+    context-path: /api/v1
+  undertow:
+    max-http-post-size: -1
+    buffer-size: 512
+    direct-buffers: true
+    threads:
+      io: 8
+      worker: 256
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  type-aliases-package: dev.modwiki.backend
+  check-config-location: false
+  executor-type: simple
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+    lazy-loading-enabled: true
+    aggressive-lazy-loading: false
+    auto-mapping-behavior: partial
+    auto-mapping-unknown-column-behavior: none
+    local-cache-scope: session
+    cache-enabled: true
+  #    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: true
+    enable-sql-runner: false
+    db-config:
+      id-type: auto
+      table-prefix: null
+      column-format: null
+      table-underline: true
+      capital-mode: false
+      logic-delete-field: null
+      logic-delete-value: true
+      logic-not-delete-value: false
+      insert-strategy: not_empty
+      update-strategy: not_empty
+      where-strategy: not_empty
+
+token:
+  header: Authorization
+  ttl: 7
+  secret: gugle-secret-LtKwdaf2uTJEuj5vsfea6H8HPAewJ6YQYs
+
+app:
+  version: 0.0.1-alpha
+  upload:
+    path: uploads
+    url-prefix: /uploads
+
+jwt:
+  secret: guglechat-secret-key-must-be-at-least-256-bits-long-for-hs256-algorithm
+  expiration-ms: 86400000
+
+file:
+  upload-dir: ./uploads
+  max-file-size: 104857600
