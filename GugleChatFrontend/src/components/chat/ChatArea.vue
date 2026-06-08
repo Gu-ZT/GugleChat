@@ -3,12 +3,15 @@ import { watch, ref, nextTick } from 'vue'
 import { useChannelStore } from '@/stores/channel'
 import { useMessageStore } from '@/stores/message'
 import { useWebSocketStore } from '@/stores/websocket'
+import { useRtcStore } from '@/stores/rtc'
 import MessageBubble from './MessageBubble.vue'
 import ChatInput from './ChatInput.vue'
+import VoiceChannel from '@/components/voice/VoiceChannel.vue'
 
 const channelStore = useChannelStore()
 const messageStore = useMessageStore()
 const wsStore = useWebSocketStore()
+const rtcStore = useRtcStore()
 const container = ref<HTMLElement | null>(null)
 
 watch(() => channelStore.currentChannelId, async (id) => {
@@ -30,6 +33,10 @@ function scrollBottom() {
         {{ channelStore.currentChannel?.name }}
       </h3>
       <span class="chat-type">{{ channelStore.currentChannel?.type === 'VOICE' ? 'Voice Channel' : 'Text Channel' }}</span>
+      <a-button v-if="channelStore.currentChannel?.type === 'VOICE' && !rtcStore.inCall"
+                type="primary" size="small" @click="rtcStore.startCall(channelStore.currentChannelId!)">
+        Join Call
+      </a-button>
     </div>
 
     <div ref="container" class="messages-container">
@@ -42,6 +49,8 @@ function scrollBottom() {
     <div class="chat-input-wrapper">
       <ChatInput :channel-id="channelStore.currentChannelId || 0" />
     </div>
+
+    <VoiceChannel />
   </div>
 </template>
 

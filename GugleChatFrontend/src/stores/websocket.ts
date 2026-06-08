@@ -4,9 +4,12 @@ import { Client } from '@stomp/stompjs'
 import { useMessageStore } from './message'
 import type { Message } from '@/types'
 
+export type RtcHandler = (body: Record<string, unknown>) => void
+
 export const useWebSocketStore = defineStore('websocket', () => {
   const connected = ref(false)
   let client: Client | null = null
+  let rtcHandler: RtcHandler | null = null
 
   function connect() {
     const token = localStorage.getItem('token')
@@ -18,12 +21,31 @@ export const useWebSocketStore = defineStore('websocket', () => {
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
-      onConnect: () => { connected.value = true },
+      onConnect: () => {
+        connected.value = true
+        // Subscribe to RTC signaling (user-specific queue)
+        client?.subscribe('/user/queue/rtc', (msg) => {
+          const body = JSON.parse(msg.body) as Record<string, unknown>
+          rtcHandler?.(body)
+        })
+      },
       onDisconnect: () => { connected.value = false },
       onStompError: (frame) => console.error('[WS]', frame.headers['message']),
     })
     client.activate()
     return client
+  }
+
+  function onRtcMessage(handler: RtcHandler) {
+    rtcHandler = handler
+  }
+
+  function sendSignaling(destination: string, payload: Record<string, unknown>) {
+    if (!client) return
+    client.publish({
+      destination: `/app/${destination}`,
+      body: JSON.stringify(payload),
+    })
   }
 
   function subscribeToChannel(channelId: number) {
@@ -52,5 +74,5 @@ export const useWebSocketStore = defineStore('websocket', () => {
     client?.deactivate(); client = null; connected.value = false
   }
 
-  return { connected, connect, subscribeToChannel, sendMessage, disconnect, isConnected }
+  return { connected, connect, subscribeToChannel, sendMessage, disconnect, isConnected, onRtcMessage, sendSignaling }
 })
