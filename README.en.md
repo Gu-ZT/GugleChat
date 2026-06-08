@@ -1,73 +1,48 @@
 # GugleChat
 
-Real-time communication platform supporting text (Markdown) / voice / video chat. Available on web, desktop, and mobile (Android +
+Real-time communication platform supporting text (Markdown) / voice / video / screen sharing. Web, desktop, and mobile (Android +
 HarmonyOS).
 
 ## Features
 
-- **Text Channels** — Text chat with Markdown & syntax highlighting
-- **Voice Channels** — Voice calls + text, WebRTC P2P connections
-- **Star Topology** — Auto-elects best-network user as host for audio forwarding
-- **NAT Detection** — ICE-based NAT type detection, prioritizes NAT1 users as host
-- **Voice Activity Detection** — Green ring on avatar when speaking, self-monitoring support
-- **Audio Device Picker** — Hover mute button to select input device
-- **Cross-Platform** — Web / Tauri Desktop / Android Native / HarmonyOS Native
-- **Configurable Backend** — Frontend can set custom backend server address
-- **Configurable TURN** — TURN server settings in Settings page
+- **Text Channels** — Markdown & syntax highlighting, image/video/audio preview
+- **Voice Channels** — WebRTC P2P voice calls, star topology host forwarding
+- **Video Calls** — Camera support, double-click card to expand
+- **Screen Sharing** — Mutually exclusive with camera, preview & expand
+- **File Upload** — Click to upload, inline image preview, video/audio embedded player
+- **XSS Protection** — markdown-it raw HTML disabled + sanitize, backend filtering
+- **Smart Host Election** — NAT type detection + bandwidth scoring, auto-select best host
+- **Voice Activity Detection** — Green ring on avatar when speaking, self-monitoring
+- **Audio Device Picker** — Hover button to switch input, persisted to localStorage
+- **Heartbeat Detection** — Auto-kick offline clients from voice rooms
+- **Dark Mode** — Arco Design theme toggle
+- **Cross-Platform** — Web / Tauri Desktop / Android / HarmonyOS (planned)
+- **Configurable Backend** — Frontend sets custom backend URL
+- **Configurable TURN** — Settings page for TURN server
 
 ## Tech Stack
 
-| Layer     | Technology                              |
-|-----------|-----------------------------------------|
-| Backend   | Spring Boot 3.5 + Java 25               |
-| Build     | Gradle (Kotlin DSL)                     |
-| Database  | PostgreSQL + Redis                      |
-| ORM       | MyBatis Plus 3.5                        |
-| Auth      | Spring Security + JWT (jjwt 0.13)       |
-| Realtime  | STOMP over WebSocket                    |
-| Media     | WebRTC (P2P + star topology forwarding) |
-| Frontend  | Vue 3 + TypeScript + Vite               |
-| UI        | Arco Design                             |
-| Desktop   | Tauri 2.x (planned)                     |
-| Android   | Kotlin + Jetpack Compose (planned)      |
-| HarmonyOS | ArkTS + ArkUI (planned)                 |
-
-## Project Structure
-
-```
-GugleChat/
-├── GugleChatBackend/              # Spring Boot backend
-│   ├── build.gradle.kts
-│   └── src/main/java/dev/dubhe/gugle/chat/
-│       ├── GugleChatApplication.java
-│       ├── common/                # Enums, DTOs, exception handling
-│       ├── auth/                  # JWT, Security, user management
-│       ├── channel/               # Channel CRUD, member management
-│       ├── message/               # WebSocket real-time messaging
-│       ├── signaling/             # WebRTC signaling + room management
-│       └── config/                # CORS config
-├── GugleChatFrontend/             # Vue 3 frontend
-│   └── src/
-│       ├── views/                 # Login, Register, Main, Settings
-│       ├── components/            # layout/Sidebar, chat/*, voice/*
-│       ├── stores/                # Pinia: auth, channel, message, websocket, rtc, theme, settings
-│       ├── services/              # Axios API wrappers
-│       ├── router/                # Vue Router
-│       └── types/                 # TypeScript types
-├── GugleChatAndroid/              # Android native (planned)
-├── GugleChatHarmony/              # HarmonyOS native (planned)
-└── docs/
-    └── sql/                       # Database init scripts
-```
+| Layer     | Technology                                  |
+|-----------|---------------------------------------------|
+| Backend   | Spring Boot 3.5 + Java 25                   |
+| Build     | Gradle (Kotlin DSL)                         |
+| Database  | PostgreSQL + Redis                          |
+| ORM       | MyBatis Plus 3.5                            |
+| Auth      | Spring Security + JWT (jjwt 0.13)           |
+| Realtime  | STOMP over WebSocket                        |
+| Media     | WebRTC (P2P + star topology + screen share) |
+| Frontend  | Vue 3 + TypeScript + Vite                   |
+| UI        | Arco Design                                 |
+| Markdown  | markdown-it + highlight.js                  |
+| Desktop   | Tauri 2.x (planned)                         |
+| Android   | Kotlin + Jetpack Compose (planned)          |
+| HarmonyOS | ArkTS + ArkUI (planned)                     |
 
 ## Quick Start
 
 ### Prerequisites
 
-- **JDK 25**
-- **PostgreSQL 16+**
-- **Redis 7+**
-- **Node.js 20+**
+- **JDK 25**, **PostgreSQL 16+**, **Redis 7+**, **Node.js 20+**
 
 ### 1. Database
 
@@ -79,26 +54,18 @@ psql -h <host> -p <port> -U <user> -d <database> -f docs/sql/init.sql
 
 ```bash
 cd GugleChatBackend
-
-# Edit src/main/resources/application-config.yaml
-# Configure database and Redis connection
-
+# Edit application-config.yaml for DB/Redis
 ./gradlew bootRun
 ```
-
-Default port `8080` (overridden to `3250` via `application-config.yaml`).
 
 ### 3. Frontend
 
 ```bash
 cd GugleChatFrontend
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-Frontend runs at `http://localhost:3000`, proxying API requests via Vite.
-
-> **Remote backend**: Click ⚙ on the login page to set a remote URL (e.g. `http://server.ztxy666.cn:3250`).
+> **Remote backend**: Click ⚙ on login page.
 
 ### 4. Build
 
@@ -111,63 +78,82 @@ cd GugleChatFrontend && npm run build
 
 ### REST API
 
-| Method | Path                                  | Description       |
-|--------|---------------------------------------|-------------------|
-| POST   | `/api/auth/register`                  | Register          |
-| POST   | `/api/auth/login`                     | Login             |
-| GET    | `/api/auth/me`                        | Current user info |
-| GET    | `/api/channels`                       | All channels      |
-| POST   | `/api/channels`                       | Create channel    |
-| PUT    | `/api/channels/{id}`                  | Update channel    |
-| DELETE | `/api/channels/{id}`                  | Delete channel    |
-| GET    | `/api/channels/{id}/members`          | Channel members   |
-| POST   | `/api/channels/{id}/members`          | Add member        |
-| DELETE | `/api/channels/{id}/members/{uid}`    | Remove member     |
-| GET    | `/api/channels/{id}/messages?before=` | Message history   |
-| PUT    | `/api/messages/{id}`                  | Edit message      |
-| DELETE | `/api/messages/{id}`                  | Delete message    |
+| Method | Path                                  | Description           |
+|--------|---------------------------------------|-----------------------|
+| POST   | `/api/auth/register`                  | Register              |
+| POST   | `/api/auth/login`                     | Login                 |
+| GET    | `/api/channels`                       | All channels          |
+| POST   | `/api/channels`                       | Create channel        |
+| GET    | `/api/channels/{id}/messages?before=` | Message history       |
+| POST   | `/api/files/upload`                   | Upload file           |
+| GET    | `/api/files/{id}`                     | Download/preview file |
+| GET    | `/api/channels/voice-users`           | Active voice users    |
 
 ### WebSocket (STOMP)
 
-| Direction | Destination                    | Description                   |
-|-----------|--------------------------------|-------------------------------|
-| SEND      | `/app/chat.send/{channelId}`   | Send message                  |
-| SUBSCRIBE | `/topic/channel.{channelId}`   | Subscribe to channel          |
-| SEND      | `/app/chat.edit/{messageId}`   | Edit message                  |
-| SEND      | `/app/chat.delete/{messageId}` | Delete message                |
-| SEND      | `/app/rtc.join/{roomId}`       | Join voice room               |
-| SEND      | `/app/rtc.leave/{roomId}`      | Leave voice room              |
-| SUBSCRIBE | `/user/queue/rtc`              | RTC signaling (private queue) |
+| Direction | Destination                  | Description      |
+|-----------|------------------------------|------------------|
+| SEND      | `/app/chat.send/{channelId}` | Send message     |
+| SUBSCRIBE | `/topic/channel.{channelId}` | Channel messages |
+| SEND      | `/app/rtc.join/{roomId}`     | Join voice room  |
+| SUBSCRIBE | `/user/queue/rtc`            | RTC signaling    |
+| SUBSCRIBE | `/topic/heartbeat`           | Heartbeat ping   |
+| SEND      | `/app/heartbeat`             | Heartbeat pong   |
 
 ## Voice Architecture
 
-- **Star Topology**: First joiner becomes 👑 host, others connect only to host
-- **Smart Election**: Auto-selects best host based on NAT type + bandwidth (NAT1 weighted highest)
-- **Auto Failover**: Host leaves → next best user becomes host
-- **Audio Forwarding**: Host relays received audio tracks to all other members
-- **NAT Detection**: ICE candidate type analysis for network environment
-- **TURN Support**: Settings page for TURN server config (symmetric NAT traversal)
+- **Star Topology**: First joiner → 👑 host, others connect only to host
+- **Smart Election**: NAT type + bandwidth, NAT1 weighted highest
+- **Auto Failover**: Host leaves → next best takes over; heartbeat timeout kicks offline
+- **NAT Detection**: Multi-STUN server analysis, distinguishes Cone vs Symmetric NAT
+- **TURN Support**: Settings page config for symmetric NAT traversal
 
 ## Configuration
 
-### Backend URL (frontend configurable)
+### application-config.yaml
 
-Login or Settings page → set backend URL, persisted in `localStorage`. Leave empty for Vite proxy/same-origin.
+Environment-specific config (database, Redis, port):
 
-### TURN Server
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://your-host:5432/gugle_chat  # PostgreSQL JDBC URL
+    username: your-db-user
+    password: your-db-password
 
-Settings → Voice & Video → fill in TURN URL, username, password (deploy coturn first).
+  data:
+    redis:
+      host: your-redis-host        # Redis host
+      port: 6379                   # Redis port
+      database: 0                  # Redis DB number (0-15)
+      password: your-redis-pwd     # Redis password
 
-### App Config
+server:
+  port: 8080                       # HTTP port
+```
 
-- `application.yaml` — Main configuration
-- `application-config.yaml` — Database, Redis, port
+| Field                        | Description                       |
+|------------------------------|-----------------------------------|
+| `spring.datasource.url`      | PostgreSQL JDBC connection string |
+| `spring.datasource.username` | Database username                 |
+| `spring.datasource.password` | Database password                 |
+| `spring.data.redis.host`     | Redis host address                |
+| `spring.data.redis.port`     | Redis port                        |
+| `spring.data.redis.database` | Redis DB index (0-15)             |
+| `spring.data.redis.password` | Redis password                    |
+| `server.port`                | HTTP server port                  |
+
+### Frontend Settings
+
+- **Backend URL**: Leave empty for proxy, set to connect directly
+- **Theme**: Dark / Light toggle
+- **TURN Server**: URL, username, password for NAT traversal
 
 ## Roadmap
 
-- [x] Phase 1: Core framework + JWT auth + text channels + Markdown chat
-- [x] Phase 2: WebRTC voice calls + signaling + star topology + NAT detection
-- [ ] Phase 3: Screen sharing + file upload/preview
+- [x] Phase 1: Core framework + JWT auth + text channels + Markdown
+- [x] Phase 2: WebRTC voice + signaling + star topology + NAT detection
+- [x] Phase 3: Screen sharing + file upload/preview + XSS protection
 - [ ] Phase 4: Tauri desktop client
 - [ ] Phase 5: Android / HarmonyOS mobile apps
 - [ ] Phase 6: SFU multi-party + message search + push notifications
