@@ -24,6 +24,13 @@ export const useWebSocketStore = defineStore('websocket', () => {
       heartbeatOutgoing: 10000,
       onConnect: () => {
         connected.value = true
+        // Subscribe to hearbeats and respond immediately
+        client?.subscribe('/topic/heartbeat', (msg) => {
+          const body = JSON.parse(msg.body) as Record<string, unknown>
+          if (body.type === 'ping') {
+            client?.publish({ destination: '/app/heartbeat', body: '{}' })
+          }
+        })
         // Subscribe to RTC signaling (user-specific queue)
         client?.subscribe('/user/queue/rtc', (msg) => {
           const body = JSON.parse(msg.body) as Record<string, unknown>
@@ -56,6 +63,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       const body = JSON.parse(message.body)
       if (body.type === 'DELETE') msgStore.removeMessage(body.messageId)
       else if (body.type === 'voice-users') {
+        console.log('[WS] voice-users for channel', channelId, body.users)
         const rtc = useRtcStore()
         rtc.setVoiceUsers(channelId, (body.users as { userId: number; username: string; quality: number }[]) || [])
         if (body.hostId && rtc.activeRoomId === channelId) rtc.hostId = body.hostId as number

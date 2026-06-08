@@ -93,6 +93,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     function setVoiceUsers(channelId: number, users: VoiceUser[]) {
+        console.log('[RTC] setVoiceUsers channel', channelId, users)
         voiceUsersByChannel.value = { ...voiceUsersByChannel.value, [channelId]: users || [] }
         for (const u of users) {
             const peer = remotePeers.value[u.userId]
