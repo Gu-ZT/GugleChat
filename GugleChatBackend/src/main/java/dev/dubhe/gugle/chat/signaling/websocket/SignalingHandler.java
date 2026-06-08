@@ -43,7 +43,10 @@ public class SignalingHandler {
                            "hostId", roomService.getHost(roomId)));
         }
         messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/rtc",
-                Map.of("type", "room-users", "users", others,
+                Map.of("type", "room-users",
+                       "users", roomService.getRoomUsers(roomId).stream()
+                               .filter(u -> !u.get("userId").equals(userId))
+                               .toList(),
                        "hostId", roomService.getHost(roomId)));
 
         broadcastVoiceUsers(roomId);

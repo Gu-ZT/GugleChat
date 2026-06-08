@@ -16,17 +16,14 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   const type = body.type as string
   const myId = authStore.user?.id || 0
   if (type === 'room-users') {
-    // New user joined: set hostId, then connect to host only (or everyone if I'm host)
     if (body.hostId) rtcStore.hostId = body.hostId as number
-    const users = (body.users as number[]) || []
+    const users = (body.users as { userId: number; username: string }[]) || []
     const host = body.hostId as number
     if (host === myId) {
-      // I'm the host: send offers to everyone already in the room
-      for (const uid of users) {
-        await createOffer(uid, 'User' + uid)
+      for (const u of users) {
+        await createOffer(u.userId, u.username)
       }
     } else if (host && host !== myId) {
-      // I'm not the host: only connect to the host
       await createOffer(host, 'Host')
     }
   } else if (type === 'user-joined') {
