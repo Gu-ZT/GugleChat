@@ -33,7 +33,7 @@
 | 前端        | Vue 3 + TypeScript + Vite         |
 | UI 组件     | Arco Design                       |
 | Markdown  | markdown-it + highlight.js        |
-| 桌面端       | Tauri 2.x（规划中）                    |
+| 桌面端       | Tauri 2.x                         |
 | Android   | Kotlin + Jetpack Compose（规划中）     |
 | HarmonyOS | ArkTS + ArkUI（规划中）                |
 
@@ -60,6 +60,8 @@ GugleChat/
 │       ├── services/              # Axios API + 文件上传
 │       ├── router/                # Vue Router
 │       └── types/                 # TypeScript 类型
+├── GugleChatDesktop/              # Tauri 2.x 桌面客户端
+│   └── src-tauri/                 # Rust 后端 + 系统托盘
 ├── GugleChatAndroid/              # Android 原生（规划中）
 ├── GugleChatHarmony/              # 鸿蒙原生（规划中）
 └── docs/
@@ -99,11 +101,20 @@ npm run dev
 
 > **连接远程后端**：登录页点击 ⚙ 设置远程地址。
 
-### 4. 构建
+### 4. 桌面端
+
+```bash
+cd GugleChatDesktop
+cargo tauri dev      # 开发模式
+cargo tauri build    # 打包安装包
+```
+
+### 5. 构建
 
 ```bash
 cd GugleChatBackend && ./gradlew build
 cd GugleChatFrontend && npm run build
+cd GugleChatDesktop && cargo tauri build
 ```
 
 ## API 概览
@@ -203,7 +214,7 @@ Settings 页面可配置：
 - [x] Phase 1: 基础框架 + JWT 认证 + 文字频道 + Markdown
 - [x] Phase 2: WebRTC 语音 + 信令 + 星形拓扑 + NAT 检测
 - [x] Phase 3: 屏幕共享 + 文件上传/预览 + XSS 防护
-- [ ] Phase 4: Tauri 桌面客户端
+- [x] Phase 4: Tauri 桌面客户端
 - [ ] Phase 5: Android / 鸿蒙移动端
 - [ ] Phase 6: SFU 多人通话 + 消息搜索 + 推送通知
 

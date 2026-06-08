@@ -34,7 +34,7 @@ HarmonyOS).
 | Frontend  | Vue 3 + TypeScript + Vite                   |
 | UI        | Arco Design                                 |
 | Markdown  | markdown-it + highlight.js                  |
-| Desktop   | Tauri 2.x (planned)                         |
+| Desktop   | Tauri 2.x                                   |
 | Android   | Kotlin + Jetpack Compose (planned)          |
 | HarmonyOS | ArkTS + ArkUI (planned)                     |
 
@@ -67,11 +67,20 @@ npm install && npm run dev
 
 > **Remote backend**: Click ⚙ on login page.
 
-### 4. Build
+### 4. Desktop
+
+```bash
+cd GugleChatDesktop
+cargo tauri dev      # Dev mode
+cargo tauri build    # Package installer
+```
+
+### 5. Build
 
 ```bash
 cd GugleChatBackend && ./gradlew build
 cd GugleChatFrontend && npm run build
+cd GugleChatDesktop && cargo tauri build
 ```
 
 ## API Overview
@@ -154,7 +163,7 @@ server:
 - [x] Phase 1: Core framework + JWT auth + text channels + Markdown
 - [x] Phase 2: WebRTC voice + signaling + star topology + NAT detection
 - [x] Phase 3: Screen sharing + file upload/preview + XSS protection
-- [ ] Phase 4: Tauri desktop client
+- [x] Phase 4: Tauri desktop client
 - [ ] Phase 5: Android / HarmonyOS mobile apps
 - [ ] Phase 6: SFU multi-party + message search + push notifications
 
