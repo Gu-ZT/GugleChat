@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.image)
     implementation(libs.linkify)
     implementation(libs.image.coil)
+    implementation(libs.coil)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
