@@ -12,8 +12,13 @@ export const useMessageStore = defineStore('message', () => {
     const res = await messageService.getHistory(channelId, beforeId)
     const msgs = (res.data as unknown as Message[]) || []
     const existing = messagesByChannel.value[channelId] || []
-    messagesByChannel.value[channelId] = [...msgs.reverse(), ...existing]
-    return msgs
+    const existingIds = new Set(existing.map(m => m.id))
+    // Dedupe: only prepend messages not already in the list
+    const newMsgs = msgs.filter(m => !existingIds.has(m.id)).reverse()
+    if (newMsgs.length > 0) {
+      messagesByChannel.value[channelId] = [...newMsgs, ...existing]
+    }
+    return newMsgs
   }
 
   function addMessage(message: Message) {
