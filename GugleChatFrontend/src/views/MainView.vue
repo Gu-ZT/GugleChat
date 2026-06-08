@@ -29,7 +29,28 @@ onMounted(async () => {
   await authStore.fetchMe()
   await channelStore.fetchChannels()
   wsStore.connect()
+  // Subscribe to all channel topics and sync voice users
+  for (const ch of channelStore.channels) {
+    wsStore.subscribeToChannel(ch.id)
+  }
+  await syncVoiceUsers()
 })
+
+async function syncVoiceUsers() {
+  try {
+    const res = await fetch('/api/channels/voice-users', {
+      headers: { Authorization: `Bearer ${authStore.token}` },
+    })
+    const body = await res.json()
+    if (body.code === 200 && body.data) {
+      const data = body.data as Record<string, { users: any[]; hostId: number }>
+      for (const roomId of Object.keys(data)) {
+        rtcStore.setVoiceUsers(Number(roomId), data[roomId].users)
+        if (data[roomId].hostId) rtcStore.hostId = data[roomId].hostId
+      }
+    }
+  } catch { /* ignore if backend not ready */ }
+}
 
 onUnmounted(() => wsStore.disconnect())
 </script>

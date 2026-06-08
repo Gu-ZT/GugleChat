@@ -92,14 +92,14 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
                     @click.stop="openVoiceChat(c)" title="Open text chat">
             <template #icon><IconMessage /></template>
           </a-button>
-          <span v-if="c.type === 'VOICE' && rtcStore.voiceUsers.length > 0 && rtcStore.activeRoomId === c.id"
+          <span v-if="c.type === 'VOICE' && rtcStore.getVoiceUsers(c.id).length > 0"
                 class="voice-count">
-            <span class="count-dot" />{{ rtcStore.voiceUsers.length }}
+            <span class="count-dot" />{{ rtcStore.getVoiceUsers(c.id).length }}
           </span>
         </div>
         <!-- Connected voice users -->
-        <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id" class="voice-users-list">
-          <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="voice-user-item">
+        <div v-if="c.type === 'VOICE' && rtcStore.getVoiceUsers(c.id).length > 0" class="voice-users-list">
+          <div v-for="u in rtcStore.getVoiceUsers(c.id)" :key="u.userId" class="voice-user-item">
             <span class="vu-dot" :class="{ 'vu-speaking': rtcStore.remoteSpeaking[u.userId] }"
                   :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }" />
             <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}{{ u.userId === rtcStore.hostId ? ' 👑' : '' }}</span>

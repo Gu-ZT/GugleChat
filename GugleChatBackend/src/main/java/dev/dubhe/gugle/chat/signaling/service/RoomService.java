@@ -73,6 +73,10 @@ public class RoomService {
         return Collections.emptySet();
     }
 
+    public Set<Long> getActiveRooms() {
+        return new HashSet<>(rooms.keySet());
+    }
+
     public Set<Long> getRoomMembers(Long roomId) {
         return rooms.getOrDefault(roomId, Collections.emptySet());
     }

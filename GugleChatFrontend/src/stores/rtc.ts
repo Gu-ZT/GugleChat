@@ -50,7 +50,7 @@ export const useRtcStore = defineStore('rtc', () => {
         deviceId: string
         label: string
     }
-    const voiceUsers = ref<VoiceUser[]>([])
+    const voiceUsersByChannel = ref<Record<number, VoiceUser[]>>({})
     const showVoiceChat = ref(false)
     const hostId = ref<number | null>(null)
     const speaking = ref(false)
@@ -92,12 +92,20 @@ export const useRtcStore = defineStore('rtc', () => {
         return servers
     }
 
-    function setVoiceUsers(users: VoiceUser[]) {
-        voiceUsers.value = users || []
+    function setVoiceUsers(channelId: number, users: VoiceUser[]) {
+        voiceUsersByChannel.value = { ...voiceUsersByChannel.value, [channelId]: users || [] }
         for (const u of users) {
             const peer = remotePeers.value[u.userId]
             if (peer) { peer.quality = u.quality ?? 0; remotePeers.value = {...remotePeers.value} }
         }
+    }
+
+    function getVoiceUsers(channelId: number): VoiceUser[] {
+        return voiceUsersByChannel.value[channelId] || []
+    }
+
+    function clearVoiceUsers(channelId: number) {
+        voiceUsersByChannel.value = { ...voiceUsersByChannel.value, [channelId]: [] }
     }
 
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
@@ -220,7 +228,7 @@ export const useRtcStore = defineStore('rtc', () => {
         Object.values(remotePeers.value).forEach(p => p.pc.close())
         Object.keys(remoteVadTimers).forEach(uid => stopRemoteVad(Number(uid)))
         remotePeers.value = {}
-        voiceUsers.value = []
+        if (activeRoomId.value) clearVoiceUsers(activeRoomId.value)
         stopVad()
         if (localStream.value) {
             localStream.value.getTracks().forEach(t => t.stop())
@@ -440,10 +448,10 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     return {
-        localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsers, showVoiceChat,
-        setVoiceUsers,
+        localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
         hostId, startCall, endCall, toggleVideo, toggleAudio, speaking, remoteSpeaking, monitoring, setMonitoring,
+        setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn

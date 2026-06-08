@@ -19,7 +19,7 @@ function avatarColor(uid: number): string {
     </div>
 
     <div class="vc-participants">
-      <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="vc-card">
+      <div v-for="u in rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0)" :key="u.userId" class="vc-card">
         <div class="vc-avatar"
              :class="{ speaking: u.userId === authStore.user?.id ? rtcStore.speaking : rtcStore.remoteSpeaking[u.userId] }"
              :style="{ background: avatarColor(u.userId) }">

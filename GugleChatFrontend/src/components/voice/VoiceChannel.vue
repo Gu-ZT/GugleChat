@@ -10,7 +10,7 @@ const authStore = useAuthStore()
 // Unused: import { useChannelStore } from '@/stores/channel'; const channelStore = useChannelStore()
 
 // Wire up RTC signaling
-rtcStore.setSendSignaling((dest, payload) => wsStore.sendSignaling(dest, payload))
+rtcStore.setSendSignaling((dest: string, payload: Record<string, unknown>) => wsStore.sendSignaling(dest, payload))
 
 wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   const type = body.type as string
@@ -53,14 +53,16 @@ async function createOffer(targetId: number, username: string) {
     if (rtcStore.hostId !== myId) return
     const stream = event.streams[0]
     if (!stream) return
+    const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
     stream.getTracks().forEach(track => {
-      Object.entries(rtcStore.remotePeers).forEach(([uid, p]) => {
+      for (const uid of Object.keys(peers)) {
+        const p = peers[Number(uid)]
         if (Number(uid) !== targetId && p.pc.connectionState === 'connected') {
           const sender = p.pc.getSenders().find(s => s.track?.kind === track.kind)
           if (sender) sender.replaceTrack(track)
           else p.pc.addTrack(track, stream)
         }
-      })
+      }
     })
   })
   const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })

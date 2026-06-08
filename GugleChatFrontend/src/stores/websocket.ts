@@ -57,8 +57,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
       if (body.type === 'DELETE') msgStore.removeMessage(body.messageId)
       else if (body.type === 'voice-users') {
         const rtc = useRtcStore()
-        rtc.setVoiceUsers((body.users as { userId: number; username: string; quality: number }[]) || [])
-        if (body.hostId) rtc.hostId = body.hostId as number
+        rtc.setVoiceUsers(channelId, (body.users as { userId: number; username: string; quality: number }[]) || [])
+        if (body.hostId && rtc.activeRoomId === channelId) rtc.hostId = body.hostId as number
       }
       else msgStore.addMessage(body as Message)
     })
