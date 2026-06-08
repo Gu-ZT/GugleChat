@@ -7,6 +7,9 @@ spring:
   application:
     name: gugle-chat
 
+  config:
+    import: classpath:application-config.yaml
+
   datasource:
     driver-class-name: org.postgresql.Driver
     type: com.zaxxer.hikari.HikariDataSource
