@@ -12,6 +12,7 @@ GugleChatFrontend/dist/
 
 # Uploaded files
 uploads/
+logs/
 
 # OS
 .DS_Store
