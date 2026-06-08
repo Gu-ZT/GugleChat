@@ -18,9 +18,25 @@ import java.util.concurrent.TimeUnit
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("guglechat", 0)
 
+    // State — declared before init to avoid NPE
+    var wsManager: WebSocketManager? = null
+    private val _token = MutableStateFlow<String?>(prefs.getString("token", null))
+    val token = _token.asStateFlow()
+    private val _channels = MutableStateFlow<List<Channel>>(emptyList())
+    val channels = _channels.asStateFlow()
+    private val _messages = MutableStateFlow<List<Message>>(emptyList())
+    val messages = _messages.asStateFlow()
+    private val _currentChannel = MutableStateFlow<Channel?>(null)
+    val currentChannel = _currentChannel.asStateFlow()
+    private val _loggedIn = MutableStateFlow(prefs.getString("token", null) != null)
+    val loggedIn = _loggedIn.asStateFlow()
+
     init {
         if (prefs.getString("token", null) != null) {
-            viewModelScope.launch { loadChannels() }
+            viewModelScope.launch {
+                loadChannels()
+                connectWs()
+            }
         }
     }
 
@@ -44,19 +60,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .client(client).addConverterFactory(GsonConverterFactory.create()).build()
             .create(ApiService::class.java)
     }
-
-    var wsManager: WebSocketManager? = null
-
-    private val _token = MutableStateFlow<String?>(prefs.getString("token", null))
-    val token = _token.asStateFlow()
-    private val _channels = MutableStateFlow<List<Channel>>(emptyList())
-    val channels = _channels.asStateFlow()
-    private val _messages = MutableStateFlow<List<Message>>(emptyList())
-    val messages = _messages.asStateFlow()
-    private val _currentChannel = MutableStateFlow<Channel?>(null)
-    val currentChannel = _currentChannel.asStateFlow()
-    private val _loggedIn = MutableStateFlow(prefs.getString("token", null) != null)
-    val loggedIn = _loggedIn.asStateFlow()
 
     fun setBackendUrl(url: String) { prefs.edit().putString("backend_url", url).commit() }
 
@@ -145,8 +148,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun connectWs() {
-        val t = _token.value ?: return
+        val t = _token.value
+        if (t == null) { Log.w("GugleChat", "connectWs: no token"); return }
         val url = buildBaseUrl()
+        Log.i("GugleChat", "connectWs: $url token=${t.take(20)}...")
         wsManager = WebSocketManager(
             baseUrl = url.trimEnd('/'),
             token = t,
