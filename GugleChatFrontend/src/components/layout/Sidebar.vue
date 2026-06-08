@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
@@ -15,10 +15,20 @@ const wsStore = useWebSocketStore()
 const rtcStore = useRtcStore()
 
 const showCreate = ref(false)
+const contextMenu = ref({ show: false, x: 0, y: 0 })
 const newName = ref('')
 const newType = ref<ChannelType>('TEXT')
 const creating = ref(false)
 let clickTimer: ReturnType<typeof setTimeout> | null = null
+
+function onContextMenu(e: MouseEvent) {
+  contextMenu.value = { show: true, x: e.clientX, y: e.clientY }
+}
+function closeContextMenu() {
+  contextMenu.value.show = false
+}
+onMounted(() => document.addEventListener('click', closeContextMenu))
+onUnmounted(() => document.removeEventListener('click', closeContextMenu))
 
 async function handleCreate() {
   if (!newName.value.trim()) return
@@ -66,21 +76,8 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
     </div>
 
     <!-- Channel list -->
-    <div class="channel-section">
-      <div class="section-header" @click="showCreate = true">
-        <span class="section-arrow">▾</span>
-        <span>TEXT CHANNELS</span>
-        <IconPlus class="add-icon" />
-      </div>
-
+    <div class="channel-section" @contextmenu.prevent="onContextMenu">
       <template v-for="c in channelStore.channels" :key="c.id">
-        <!-- Voice channel divider -->
-        <div v-if="c.type === 'VOICE' && channelStore.channels.find(ch => ch.type === 'VOICE')?.id === c.id"
-             class="section-header voice-header">
-          <span class="section-arrow">▾</span>
-          <span>VOICE CHANNELS</span>
-        </div>
-
         <div class="channel-item"
              :class="{
                active: c.id === channelStore.currentChannelId,
@@ -90,7 +87,6 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
           <IconVoice v-if="c.type === 'VOICE'" class="ch-icon voice-icon" />
           <IconMessage v-else class="ch-icon" />
           <span class="ch-name">{{ c.name }}</span>
-          <!-- Chat button on voice channel -->
           <a-button v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
                     class="ch-chat-btn" type="text" size="mini"
                     @click.stop="openVoiceChat(c)" title="Open text chat">
@@ -101,10 +97,8 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
             <span class="count-dot" />{{ rtcStore.voiceUsers.length }}
           </span>
         </div>
-
         <!-- Connected voice users -->
-        <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
-             class="voice-users-list">
+        <div v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id" class="voice-users-list">
           <div v-for="u in rtcStore.voiceUsers" :key="u.userId" class="voice-user-item">
             <span class="vu-dot" :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }" />
             <span class="vu-name">{{ u.username }}{{ u.userId === authStore.user?.id ? ' (you)' : '' }}{{ u.userId === rtcStore.hostId ? ' 👑' : '' }}</span>
@@ -166,6 +160,14 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         <a-button type="text" size="mini" @click="router.push('/settings')">
           <template #icon><IconSettings /></template>
         </a-button>
+      </div>
+    </div>
+
+    <!-- Context menu -->
+    <div v-if="contextMenu.show" class="context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
+      <div class="ctx-item" @click="closeContextMenu(); showCreate = true">
+        <IconPlus class="ctx-icon" />
+        <span>Create Channel</span>
       </div>
     </div>
 
@@ -253,6 +255,18 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
 .device-item { font-size: 13px; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: #dbdee1; }
 .device-item:hover { background: #5865f2; color: #fff; }
 .device-item.active { color: #22c55e; }
+
+.context-menu {
+  position: fixed; z-index: 1000;
+  background: #1e1f22; border: 1px solid #2b2d31; border-radius: 4px;
+  padding: 4px 0; min-width: 160px; box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+}
+.ctx-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  font-size: 13px; color: #b5bac1; cursor: pointer;
+}
+.ctx-item:hover { background: #5865f2; color: #fff; border-radius: 2px; }
+.ctx-icon { font-size: 14px; }
 
 /* Bottom user panel */
 .user-panel {
