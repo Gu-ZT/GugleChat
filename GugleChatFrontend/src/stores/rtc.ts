@@ -38,6 +38,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const remotePeers = ref<Record<number, RemotePeer>>({})
     const activeRoomId = ref<number | null>(null)
     const videoEnabled = ref(false)
+    const screenSharing = ref(false)
     const audioEnabled = ref(true)
 
     interface VoiceUser {
@@ -250,31 +251,77 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     async function toggleVideo() {
-        if (!videoEnabled.value) {
-            if (!localStream.value) return
-            try {
-                const newStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true})
-                localStream.value.getTracks().forEach(t => t.stop())
-                localStream.value = newStream
-                videoEnabled.value = true
-                // Replace tracks on existing connections
-                const videoTrack = newStream.getVideoTracks()[0]
-                Object.values(remotePeers.value).forEach(peer => {
-                    const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-                    if (sender && videoTrack) sender.replaceTrack(videoTrack)
-                    else if (videoTrack) peer.pc.addTrack(videoTrack, newStream)
-                })
-            } catch { /* camera denied */
-            }
-        } else {
+        if (videoEnabled.value) {
             localStream.value?.getVideoTracks().forEach(t => t.stop())
             videoEnabled.value = false
+            return
         }
+        // Video and screen share mutually exclusive
+        if (screenSharing.value) stopScreenShare()
+        if (!localStream.value) return
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true})
+            localStream.value.getTracks().forEach(t => t.stop())
+            localStream.value = newStream
+            videoEnabled.value = true
+            const videoTrack = newStream.getVideoTracks()[0]
+            if (videoTrack) {
+                Object.values(remotePeers.value).forEach(peer => {
+                    const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+                    if (sender) sender.replaceTrack(videoTrack)
+                    else peer.pc.addTrack(videoTrack, newStream)
+                })
+            }
+        } catch { /* camera denied */ }
     }
 
     function toggleAudio() {
         audioEnabled.value = !audioEnabled.value
         localStream.value?.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
+    }
+
+    async function toggleScreenShare() {
+        if (screenSharing.value) {
+            stopScreenShare()
+            return
+        }
+        // Screen share and video are mutually exclusive
+        if (videoEnabled.value) {
+            localStream.value?.getVideoTracks().forEach(t => t.stop())
+            videoEnabled.value = false
+        }
+        try {
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+            screenSharing.value = true
+            // Keep audio from existing stream, replace video with screen
+            const screenTrack = screenStream.getVideoTracks()[0]
+            if (!screenTrack) return
+            // Add screen track to local stream (create one if needed)
+            if (localStream.value) {
+                localStream.value.getVideoTracks().forEach(t => t.stop())
+                localStream.value.addTrack(screenTrack)
+            } else {
+                localStream.value = screenStream
+            }
+            // Replace video track on all peer connections
+            for (const peer of Object.values(remotePeers.value)) {
+                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+                if (sender) sender.replaceTrack(screenTrack)
+                else peer.pc.addTrack(screenTrack, localStream.value!)
+            }
+            // Stop sharing when user clicks browser's "Stop sharing" button
+            screenTrack.onended = () => stopScreenShare()
+        } catch (e) { /* user cancelled */ }
+    }
+
+    function stopScreenShare() {
+        screenSharing.value = false
+        localStream.value?.getVideoTracks().forEach(t => t.stop())
+        // Remove video track from all senders
+        for (const peer of Object.values(remotePeers.value)) {
+            const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+            if (sender) sender.replaceTrack(null)
+        }
     }
 
     async function enumerateAudioDevices() {
@@ -463,7 +510,8 @@ export const useRtcStore = defineStore('rtc', () => {
     return {
         localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
-        hostId, startCall, endCall, toggleVideo, toggleAudio, speaking, remoteSpeaking, monitoring, setMonitoring,
+        hostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
+        speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {

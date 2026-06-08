@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
-import { IconPlus, IconSound, IconVoice, IconMute, IconSettings, IconClose, IconUser, IconMessage, IconVideoCamera, IconCloseCircle } from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconSound, IconVoice, IconMute, IconSettings, IconClose, IconUser, IconMessage, IconVideoCamera, IconCloseCircle, IconDesktop } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
@@ -139,8 +139,13 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         </a-popover>
         <a-button type="text" size="mini"
                   :class="{ active: rtcStore.videoEnabled }"
-                  @click="rtcStore.toggleVideo">
+                  @click="rtcStore.toggleVideo" title="Camera">
           <template #icon><IconVideoCamera /></template>
+        </a-button>
+        <a-button type="text" size="mini"
+                  :class="{ active: rtcStore.screenSharing }"
+                  @click="rtcStore.toggleScreenShare" title="Screen Share">
+          <template #icon><IconDesktop /></template>
         </a-button>
         <a-button type="text" size="mini" status="danger" @click="rtcStore.endCall()">
           <template #icon><IconCloseCircle /></template>

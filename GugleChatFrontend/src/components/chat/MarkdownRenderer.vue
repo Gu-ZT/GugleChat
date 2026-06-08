@@ -19,6 +19,22 @@ const md: MarkdownIt = new MarkdownIt({
   },
 })
 
+// Custom renderer: video/audio links → embedded players
+const defaultLinkRender = md.renderer.rules.link_open || function (tokens, idx, options, _env, self) {
+  return self.renderToken(tokens, idx, options)
+}
+md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+  const href = tokens[idx].attrGet('href') || ''
+  const ext = href.split('.').pop()?.toLowerCase() || ''
+  if (['mp4', 'webm', 'mov'].includes(ext)) {
+    return `<video controls style="max-width:100%;border-radius:6px;max-height:360px" src="${href}">`
+  }
+  if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) {
+    return `<audio controls style="width:100%" src="${href}">`
+  }
+  return defaultLinkRender(tokens, idx, options, env, self)
+}
+
 const rendered = computed(() => md.render(props.content))
 </script>
 
