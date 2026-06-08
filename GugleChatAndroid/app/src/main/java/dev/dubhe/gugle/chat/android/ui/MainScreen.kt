@@ -1,5 +1,6 @@
 package dev.dubhe.gugle.chat.android.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,10 +32,15 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
     val messages by viewModel.messages.collectAsState()
     val current by viewModel.currentChannel.collectAsState()
     var showChannels by remember { mutableStateOf(true) }
+    var prevChannel by remember { mutableStateOf<Channel?>(null) }
     var input by remember { mutableStateOf("") }
 
-    // Auto-switch to chat after selecting channel
-    if (showChannels && current != null) showChannels = false
+    // Auto-switch to chat ONLY when channel was just selected (not on back)
+    if (current != null && current != prevChannel) {
+        prevChannel = current
+        showChannels = false
+    }
+    if (current == null && showChannels == false) showChannels = true
 
     if (showChannels || current == null) {
         ChannelListScreen(channels, viewModel::selectChannel, onLogout)

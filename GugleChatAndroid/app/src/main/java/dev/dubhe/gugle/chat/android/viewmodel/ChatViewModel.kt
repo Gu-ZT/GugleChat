@@ -18,6 +18,12 @@ import java.util.concurrent.TimeUnit
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("guglechat", 0)
 
+    init {
+        if (prefs.getString("token", null) != null) {
+            viewModelScope.launch { loadChannels() }
+        }
+    }
+
     private fun buildBaseUrl(): String {
         val custom = prefs.getString("backend_url", "") ?: ""
         val url = if (custom.isNotEmpty()) custom else "http://10.0.2.2:3250"
