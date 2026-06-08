@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
 import { useAuthStore } from '@/stores/auth'
-import { IconUser, IconNotification } from '@arco-design/web-vue/es/icon'
+import { IconUser, IconVoice } from '@arco-design/web-vue/es/icon'
 
 const rtcStore = useRtcStore()
 const authStore = useAuthStore()
@@ -10,7 +10,7 @@ const authStore = useAuthStore()
 <template>
   <div class="voice-call-view">
     <div class="vc-header">
-      <IconNotification class="vc-header-icon" />
+      <IconVoice class="vc-header-icon" />
       <span>Voice Connected</span>
     </div>
 

@@ -24,13 +24,18 @@ public class SignalingHandler {
 
     @MessageMapping("/rtc.join/{roomId}")
     public void joinRoom(@DestinationVariable Long roomId, Principal principal,
-                         SimpMessageHeaderAccessor accessor) {
+                         SimpMessageHeaderAccessor accessor,
+                         @Payload(required = false) Map<String, Object> payload) {
         Long userId = Long.parseLong(principal.getName());
+        double quality = 1.0;
+        if (payload != null && payload.get("quality") instanceof Number q) {
+            quality = q.doubleValue();
+        }
         Object uname = accessor.getSessionAttributes() != null
                 ? accessor.getSessionAttributes().get("username") : null;
         String username = uname != null ? uname.toString() : "User" + userId;
         roomService.setUsername(userId, username);
-        Set<Long> others = roomService.joinRoom(roomId, userId);
+        Set<Long> others = roomService.joinRoom(roomId, userId, quality);
 
         for (Long otherId : others) {
             messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",

@@ -198,7 +198,12 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         videoEnabled.value = false
         audioEnabled.value = true
-        sendSignaling('rtc.join/' + roomId, {})
+        // NAT type detection + bandwidth → composite quality score
+        const natScore = await detectNatType()
+        const bwScore = Math.min(((navigator as any).connection?.downlink as number) || 1.0, 20) / 20
+        const quality = natScore * 5 + bwScore  // NAT weighted higher than bandwidth
+        console.log(`[RTC] NAT score=${natScore}, BW=${((navigator as any).connection?.downlink || 1)}Mbps, quality=${quality.toFixed(1)}`)
+        sendSignaling('rtc.join/' + roomId, { quality })
     }
 
     function endCall() {
@@ -324,6 +329,32 @@ export const useRtcStore = defineStore('rtc', () => {
         monitorGain.gain.value = 1.0
         source.connect(monitorGain)
         monitorGain.connect(audioCtx.destination)
+    }
+
+    /** Detect NAT type: 1=open(NAT1), 0.66=cone(NAT2-3), 0.33=symmetric(NAT4) */
+    async function detectNatType(): Promise<number> {
+        return new Promise((resolve) => {
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+            })
+            const candidates: RTCIceCandidate[] = []
+            const timer = setTimeout(() => {
+                pc.close()
+                const types = candidates.map(c => c.type || '')
+                const hasHost = types.includes('host') && !candidates.every(c => c.address?.startsWith('192.') || c.address?.startsWith('10.') || c.address?.startsWith('172.'))
+                const hasSrflx = types.includes('srflx')
+                const hasRelay = types.includes('relay')
+                if (hasHost) resolve(1.0)       // NAT1: open, can be host directly
+                else if (hasSrflx && !hasRelay) resolve(0.66)  // NAT2-3: cone NAT
+                else resolve(0.33)               // NAT4: symmetric, needs relay
+            }, 3000)
+            pc.onicecandidate = (e) => {
+                if (e.candidate) candidates.push(e.candidate)
+                else { clearTimeout(timer); resolve(1.0) }
+            }
+            pc.createDataChannel('nat-check')
+            pc.createOffer().then(o => pc.setLocalDescription(o))
+        })
     }
 
     function stopMonitor() {

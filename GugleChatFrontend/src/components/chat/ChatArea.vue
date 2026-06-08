@@ -3,7 +3,7 @@ import { watch, ref, nextTick } from 'vue'
 import { useChannelStore } from '@/stores/channel'
 import { useMessageStore } from '@/stores/message'
 import { useWebSocketStore } from '@/stores/websocket'
-import { IconNotification } from '@arco-design/web-vue/es/icon'
+import { IconVoice, IconMessage } from '@arco-design/web-vue/es/icon'
 import MessageBubble from './MessageBubble.vue'
 import ChatInput from './ChatInput.vue'
 
@@ -27,8 +27,8 @@ function scrollBottom() {
   <div class="chat-area">
     <div class="chat-header">
       <h3>
-        <IconNotification v-if="channelStore.currentChannel?.type === 'VOICE'" class="ch-icon" />
-        <span v-else class="ch-hash">#</span>
+        <IconVoice v-if="channelStore.currentChannel?.type === 'VOICE'" class="ch-icon" />
+        <IconMessage v-else class="ch-icon" />
         {{ channelStore.currentChannel?.name }}
       </h3>
       <span class="chat-type">{{ channelStore.currentChannel?.type === 'VOICE' ? 'Voice · Chat' : 'Text Channel' }}</span>

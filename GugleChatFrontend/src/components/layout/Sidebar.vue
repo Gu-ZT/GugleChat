@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
-import { IconPlus, IconNotification, IconSettings, IconClose, IconUser, IconMessage, IconVideoCamera, IconPhone } from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconSound, IconVoice, IconMute, IconSettings, IconClose, IconUser, IconMessage, IconVideoCamera, IconCloseCircle } from '@arco-design/web-vue/es/icon'
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
@@ -87,8 +87,8 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
                'voice-joined': rtcStore.activeRoomId === c.id
              }"
              @click="handleChannelClick(c)">
-          <IconNotification v-if="c.type === 'VOICE'" class="ch-icon voice-icon" />
-          <span v-else class="ch-icon ch-hash">#</span>
+          <IconVoice v-if="c.type === 'VOICE'" class="ch-icon voice-icon" />
+          <IconMessage v-else class="ch-icon" />
           <span class="ch-name">{{ c.name }}</span>
           <!-- Chat button on voice channel -->
           <a-button v-if="c.type === 'VOICE' && rtcStore.activeRoomId === c.id"
@@ -119,7 +119,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
     <!-- Voice controls (above user panel) -->
     <div v-if="rtcStore.activeRoomId" class="voice-controls-panel">
       <div class="vcp-left">
-        <IconNotification class="vcp-signal" />
+        <IconSound class="vcp-signal" />
         <span class="vcp-text">Voice Connected</span>
       </div>
       <div class="vcp-actions">
@@ -129,7 +129,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
           <a-button type="text" size="mini"
                     :status="!rtcStore.audioEnabled ? 'danger' : undefined"
                     @click="rtcStore.toggleAudio">
-            <template #icon><IconNotification v-if="rtcStore.audioEnabled" /><IconClose v-else /></template>
+            <template #icon><IconSound v-if="rtcStore.audioEnabled" /><IconMute v-else /></template>
           </a-button>
           <template #content>
             <div class="device-list">
@@ -147,7 +147,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
           <template #icon><IconVideoCamera /></template>
         </a-button>
         <a-button type="text" size="mini" status="danger" @click="rtcStore.endCall()">
-          <template #icon><IconPhone /></template>
+          <template #icon><IconCloseCircle /></template>
         </a-button>
       </div>
     </div>

@@ -13,8 +13,10 @@ public class RoomService {
     private final Map<Long, Long> userRooms = new ConcurrentHashMap<>();
     private final Map<Long, String> userNames = new ConcurrentHashMap<>();
     private final Map<Long, Long> roomHosts = new ConcurrentHashMap<>();
+    private final Map<Long, Double> userQualities = new ConcurrentHashMap<>();
 
-    public Set<Long> joinRoom(Long roomId, Long userId) {
+    public Set<Long> joinRoom(Long roomId, Long userId, double quality) {
+        userQualities.put(userId, quality);
         Long prev = userRooms.remove(userId);
         if (prev != null && rooms.containsKey(prev)) {
             rooms.get(prev).remove(userId);
@@ -22,8 +24,10 @@ public class RoomService {
         }
         rooms.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(userId);
         userRooms.put(userId, roomId);
-        // First joiner becomes host
-        roomHosts.putIfAbsent(roomId, userId);
+        // Pick best quality user as host
+        if (!roomHosts.containsKey(roomId) || quality > userQualities.getOrDefault(roomHosts.get(roomId), 0.0)) {
+            roomHosts.put(roomId, userId);
+        }
         Set<Long> others = new HashSet<>(rooms.get(roomId));
         others.remove(userId);
         return others;
@@ -43,14 +47,18 @@ public class RoomService {
 
     public Set<Long> leaveRoom(Long userId) {
         Long roomId = userRooms.remove(userId);
+        userQualities.remove(userId);
         if (roomId != null && rooms.containsKey(roomId)) {
             Set<Long> room = rooms.get(roomId);
             room.remove(userId);
             Set<Long> remaining = new HashSet<>(room);
             if (room.isEmpty()) { rooms.remove(roomId); roomHosts.remove(roomId); }
-            // If host left, pick next as host
+            // If host left, pick best quality remaining user
             else if (userId.equals(roomHosts.get(roomId))) {
-                roomHosts.put(roomId, remaining.iterator().next());
+                Long best = remaining.stream()
+                        .max(Comparator.comparingDouble(u -> userQualities.getOrDefault(u, 0.0)))
+                        .orElse(remaining.iterator().next());
+                roomHosts.put(roomId, best);
             }
             return remaining;
         }
