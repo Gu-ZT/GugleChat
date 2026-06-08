@@ -36,7 +36,7 @@ const authStore = useAuthStore()
           {{ connStateLabel(peer.iceState) }}
         </div>
         <div class="vc-quality">
-          ⭐ {{ (rtcStore.voiceUsers.find(v => v.userId === uid)?.quality || 0).toFixed(1) }}
+          ⭐ {{ peer.quality.toFixed(1) }}
         </div>
       </div>
 

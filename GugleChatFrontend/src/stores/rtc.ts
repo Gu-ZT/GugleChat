@@ -10,6 +10,7 @@ export interface RemotePeer {
     audioEl: HTMLAudioElement | null
     iceState: RTCIceConnectionState
     connState: RTCPeerConnectionState
+    quality: number
 }
 
 export function connStateLabel(state: string): string {
@@ -93,11 +94,15 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function setVoiceUsers(users: VoiceUser[]) {
         voiceUsers.value = users || []
+        for (const u of users) {
+            const peer = remotePeers.value[u.userId]
+            if (peer) { peer.quality = u.quality ?? 0; remotePeers.value = {...remotePeers.value} }
+        }
     }
 
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
         remotePeers.value = {...remotePeers.value, [userId]: {
-            userId, username, stream: null, pc, iceBuffer: [], audioEl: null,
+            userId, username, stream: null, pc, iceBuffer: [], audioEl: null, quality: 0,
             iceState: 'new', connState: 'new',
         }}
     }
