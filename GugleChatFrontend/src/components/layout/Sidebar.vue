@@ -58,7 +58,8 @@ function handleChannelClick(c: { id: number; type: ChannelType }) {
 function selectTextChannel(id: number) {
   channelStore.selectChannel(id)
   wsStore.subscribeToChannel(id)
-  if (rtcStore.activeRoomId) rtcStore.showVoiceChat = true
+  // Voice channel: show text chat; Text channel: hide voice view
+  rtcStore.showVoiceChat = channelStore.currentChannel?.type === 'VOICE'
 }
 
 function openVoiceChat(c: { id: number; type: ChannelType }) {
