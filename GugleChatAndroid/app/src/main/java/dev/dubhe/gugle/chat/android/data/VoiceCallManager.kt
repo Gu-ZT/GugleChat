@@ -30,6 +30,15 @@ class VoiceCallManager(
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         audioManager.isSpeakerphoneOn = true
 
+        // RFC 5780 NAT detection in background
+        var quality = 1.0
+        Thread {
+            val result = kotlinx.coroutines.runBlocking { NatDetector.detect() }
+            quality = result.score
+            Log.i("RTC", "NAT: ${result.type} (score=${result.score}) — update join")
+            signal("rtc.join/$roomId", mapOf("quality" to quality))
+        }.start()
+
         val options = PeerConnectionFactory.InitializationOptions.builder(ctx)
             .createInitializationOptions()
         PeerConnectionFactory.initialize(options)
@@ -42,7 +51,7 @@ class VoiceCallManager(
         localStream = factory!!.createLocalMediaStream("local")
         localStream!!.addTrack(audioTrack)
 
-        signal("rtc.join/$roomId", mapOf("quality" to 1.0))
+        signal("rtc.join/$roomId", mapOf("quality" to quality))
     }
 
     fun onRtcMessage(type: String, data: Map<String, Any>) {
