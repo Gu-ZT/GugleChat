@@ -47,8 +47,6 @@ function ensurePeerMix(uid: number) {
       entry.sourceNodes.add(gain)
     }
   }
-  // Apply this peer's mixed track to its PC
-  applyMixedTrack(uid)
 }
 
 function applyMixedTrack(uid: number) {
@@ -56,8 +54,20 @@ function applyMixedTrack(uid: number) {
   if (!entry) return
   const mixedTrack = entry.dest.stream.getAudioTracks()[0]
   const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
-  const sender = peers[uid]?.pc.getSenders().find(s => s.track?.kind === 'audio')
-  if (sender) sender.replaceTrack(mixedTrack)
+  const p = peers[uid]
+  if (!p || p.pc.connectionState !== 'connected') return
+  const sender = p.pc.getSenders().find(s => s.track?.kind === 'audio')
+  if (sender && sender.track !== mixedTrack) {
+    sender.replaceTrack(mixedTrack)
+    console.log('[mix] replaced track for peer', uid)
+  }
+}
+
+function applyAllMixedTracks() {
+  const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
+  for (const uid of Object.keys(peers)) {
+    applyMixedTrack(Number(uid))
+  }
 }
 
 function addRemoteSource(uid: number, track: MediaStreamTrack) {
@@ -132,13 +142,21 @@ async function createOffer(targetId: number, username: string) {
   const pc = rtcStore.createPeerConnection(targetId, username)
   ;(pc as any)._gugleInitPing?.()
   const myId = authStore.user?.id || 0
+  // Auto-apply mixed track when connection becomes stable
+  pc.addEventListener('connectionstatechange', () => {
+    if (rtcStore.hostId !== myId) return
+    if (pc.connectionState === 'connected' && mixCtx) {
+      ensurePeerMix(targetId)
+      applyMixedTrack(targetId)
+    }
+  })
   // Track event: add remote audio to per-peer mixers
   pc.addEventListener('track', (event: RTCTrackEvent) => {
     if (rtcStore.hostId !== myId) return
     const stream = event.streams[0]
     if (!stream) return
     ensureMixer()
-    ensurePeerMix(targetId) // ensure this peer has a mix
+    ensurePeerMix(targetId)
     for (const track of stream.getTracks()) {
       addRemoteSource(targetId, track)
     }
