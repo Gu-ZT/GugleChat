@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -77,14 +78,11 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
         showChannels = true; prevChannel = null
     }
 
-    if (showChannels || current == null) {
+    if (inVoiceCall) {
+        VoiceScreen(channels, viewModel::endVoiceCall, viewModel::selectChannel)
+    } else if (showChannels || current == null) {
         ChannelListScreen(
-            channels,
-            viewModel::selectChannel,
-            viewModel::startVoiceCall,
-            viewModel::endVoiceCall,
-            inVoiceCall,
-            onLogout
+            channels, viewModel::selectChannel, viewModel::startVoiceCall, viewModel::endVoiceCall, inVoiceCall, onLogout
         )
     } else {
         ChatScreen(current!!, messages, input, { input = it }, {
@@ -305,5 +303,85 @@ fun MessageBubble(msg: Message) {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun VoiceScreen(
+    channels: List<Channel>,
+    onLeave: () -> Unit,
+    onSelectChannel: (Channel) -> Unit,
+) {
+    val voiceChannel = channels.find { it.type == "VOICE" }
+    Column(Modifier.fillMaxSize().background(DiscordBg)) {
+        // Header
+        Surface(Modifier.fillMaxWidth(), color = DiscordBg) {
+            Row(Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { onSelectChannel(voiceChannel ?: channels.first()) }) {
+                    Text("☰", color = DiscordText, fontSize = 20.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text("Voice Connected", color = DiscordGreen, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+        HorizontalDivider(color = DiscordDivider)
+
+        // Participants area
+        LazyColumn(Modifier.weight(1f).padding(24.dp)) {
+            item {
+                Text("PARTICIPANTS", color = DiscordMuted, fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+            }
+            // Self
+            item {
+                ParticipantCard("You", "#5865F2", true)
+            }
+            // Connected peers (placeholder — real data from WebRTC)
+        }
+    }
+
+    // Bottom controls
+    Surface(Modifier.fillMaxWidth(), color = Color(0xFF232428)) {
+        Row(Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically) {
+            // Mute
+            IconButton(onClick = {}) {
+                Text("🎤", fontSize = 24.sp)
+            }
+            // Video (disabled on mobile for now)
+            IconButton(onClick = {}) {
+                Text("📹", fontSize = 24.sp, color = DiscordMuted)
+            }
+            // Screen Share
+            IconButton(onClick = {}) {
+                Text("🖥", fontSize = 24.sp, color = DiscordMuted)
+            }
+            // Leave
+            IconButton(onClick = onLeave) {
+                Surface(Modifier.size(48.dp), shape = MaterialTheme.shapes.extraLarge,
+                    color = Color(0xFFED4245)) {
+                    Box(contentAlignment = Alignment.Center) { Text("✕", color = Color.White, fontSize = 20.sp) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ParticipantCard(name: String, colorHex: String, speaking: Boolean) {
+    val color = Color(android.graphics.Color.parseColor(colorHex))
+    Row(Modifier.padding(vertical = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Surface(Modifier.size(40.dp), shape = MaterialTheme.shapes.extraLarge, color = color) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(name.first().uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, color = DiscordText, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(if (speaking) "Speaking" else "Connected", color = if (speaking) DiscordGreen else DiscordMuted, fontSize = 12.sp)
+        }
+        if (speaking) Surface(Modifier.size(8.dp), shape = MaterialTheme.shapes.extraLarge, color = DiscordGreen) {}
     }
 }
