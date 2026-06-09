@@ -466,7 +466,7 @@ export const useRtcStore = defineStore('rtc', () => {
         stopVad()
         stopMonitor()
         startVad()
-        if (monitoring.value) startMonitor()
+        if (monitoring.value) await startMonitor()
         if (micGainNode) {
             micGainNode.disconnect(); micGainNode = null
             if (micProcessedTrack) { micProcessedTrack.stop(); micProcessedTrack = null }
@@ -575,7 +575,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 } catch (e) { monitoring.value = false; return }
             }
             if (!audioCtx) { audioCtx = new AudioContext() }
-            startMonitor()
+            await startMonitor()
         } else {
             stopMonitor()
             if (!activeRoomId.value) {
@@ -640,8 +640,9 @@ export const useRtcStore = defineStore('rtc', () => {
         speaking.value = false
     }
 
-    function startMonitor() {
+    async function startMonitor() {
         if (!audioCtx || !localStream.value) return
+        if (audioCtx.state === 'suspended') await audioCtx.resume()
         stopMonitor()
         const source = audioCtx.createMediaStreamSource(localStream.value)
         monitorGain = audioCtx.createGain()
