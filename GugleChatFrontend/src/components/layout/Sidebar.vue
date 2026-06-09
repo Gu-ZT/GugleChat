@@ -10,6 +10,7 @@ import {
   IconDesktop,
   IconMessage,
   IconMute,
+  IconPhone,
   IconPlus,
   IconSettings,
   IconSound,
@@ -185,8 +186,6 @@ function handleLogout() {
         <span class="vcp-text">Voice Connected</span>
       </div>
       <div class="vcp-actions">
-        <a-checkbox :model-value="rtcStore.monitoring"
-                    @change="rtcStore.setMonitoring(!rtcStore.monitoring)" title="Hear yourself"/>
         <a-button type="text" size="mini"
                   :class="{ active: rtcStore.videoEnabled }"
                   @click="rtcStore.toggleVideo" title="Camera">
@@ -232,6 +231,11 @@ function handleLogout() {
             </div>
           </template>
         </a-popover>
+        <a-button type="text" size="mini"
+                  :class="{ 'fx-active': rtcStore.monitoring }"
+                  @click="rtcStore.setMonitoring(!rtcStore.monitoring)" title="Hear yourself">
+          <template #icon><IconPhone/></template>
+        </a-button>
         <a-popover trigger="hover" position="top">
           <a-button type="text" size="mini"
                     :class="{ 'mic-muted': !rtcStore.audioEnabled }"

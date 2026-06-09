@@ -439,16 +439,51 @@ export const useRtcStore = defineStore('rtc', () => {
     function toggleNoiseFx() {
         noiseFxEnabled.value = !noiseFxEnabled.value
         localStorage.setItem('guglechat_noise_fx', String(noiseFxEnabled.value))
+        refreshAudioStream()
+    }
+
+    async function refreshAudioStream() {
+        if (!activeRoomId.value) return
+        const ac: MediaTrackConstraints = getAudioConstraints()
+        if (currentAudioDevice.value) {
+            (ac as any).deviceId = { exact: currentAudioDevice.value }
+        }
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: ac })
+        const oldTrack = localStream.value?.getAudioTracks()[0]
+        const newTrack = newStream.getAudioTracks()[0]
+        if (!newTrack) return
+        if (oldTrack) {
+            newTrack.enabled = oldTrack.enabled
+            localStream.value?.removeTrack(oldTrack)
+            oldTrack.stop()
+        }
+        localStream.value?.addTrack(newTrack)
+        Object.values(remotePeers.value).forEach(peer => {
+            const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
+            if (sender) sender.replaceTrack(newTrack)
+        })
+        // Restart VAD, monitor and mic gain with new stream
+        stopVad()
+        stopMonitor()
+        startVad()
+        if (monitoring.value) startMonitor()
+        if (micGainNode) {
+            micGainNode.disconnect(); micGainNode = null
+            if (micProcessedTrack) { micProcessedTrack.stop(); micProcessedTrack = null }
+        }
+        applyMicGain()
     }
 
     function toggleEchoCancellation() {
         echoCancellation.value = !echoCancellation.value
         localStorage.setItem('guglechat_echo_cancel', String(echoCancellation.value))
+        refreshAudioStream()
     }
 
     function toggleNoiseSuppression() {
         noiseSuppression.value = !noiseSuppression.value
         localStorage.setItem('guglechat_noise_suppress', String(noiseSuppression.value))
+        refreshAudioStream()
     }
 
     function getAudioConstraints(): MediaTrackConstraints {
@@ -524,34 +559,30 @@ export const useRtcStore = defineStore('rtc', () => {
     async function switchAudioDevice(deviceId: string) {
         currentAudioDevice.value = deviceId
         localStorage.setItem('guglechat_audio_device', deviceId)
-        if (!activeRoomId.value) return
-        try {
-            const newStream = await navigator.mediaDevices.getUserMedia({
-                audio: { deviceId: { exact: deviceId } },
-            })
-            const oldTrack = localStream.value?.getAudioTracks()[0]
-            if (oldTrack) {
-                oldTrack.stop()
-                newStream.getAudioTracks().forEach(track => {
-                    if (oldTrack) localStream.value?.removeTrack(oldTrack)
-                    localStream.value?.addTrack(track)
-                    Object.values(remotePeers.value).forEach(peer => {
-                        const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
-                        if (sender) sender.replaceTrack(track)
-                    })
-                })
-            }
-        } catch (e) {
-            console.error('[RTC] switch audio device failed:', e)
-        }
+        await refreshAudioStream()
     }
 
-    function setMonitoring(on: boolean) {
+    async function setMonitoring(on: boolean) {
         monitoring.value = on
         if (on) {
+            if (!localStream.value) {
+                const ac: MediaTrackConstraints = getAudioConstraints()
+                if (currentAudioDevice.value) {
+                    (ac as any).deviceId = { exact: currentAudioDevice.value }
+                }
+                try {
+                    localStream.value = await navigator.mediaDevices.getUserMedia({ video: false, audio: ac })
+                } catch (e) { monitoring.value = false; return }
+            }
+            if (!audioCtx) { audioCtx = new AudioContext() }
             startMonitor()
         } else {
             stopMonitor()
+            if (!activeRoomId.value) {
+                stopVad()
+                localStream.value?.getTracks().forEach(t => t.stop())
+                localStream.value = null
+            }
         }
     }
 
