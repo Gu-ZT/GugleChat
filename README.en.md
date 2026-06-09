@@ -6,16 +6,20 @@ HarmonyOS).
 ## Features
 
 - **Text Channels** — Markdown & syntax highlighting, image/video/audio preview
-- **Voice Channels** — WebRTC P2P voice calls, star topology host forwarding
+- **Voice Channels** — WebRTC P2P voice calls, star topology host forwarding, single-room enforcement
 - **Video Calls** — Camera support, double-click card to expand
 - **Screen Sharing** — Mutually exclusive with camera, preview & expand
 - **File Upload** — Click to upload, inline image preview, video/audio embedded player
 - **XSS Protection** — markdown-it raw HTML disabled + sanitize, backend filtering
-- **Smart Host Election** — NAT type detection + bandwidth scoring, auto-select best host
-- **Voice Activity Detection** — Green ring on avatar when speaking, self-monitoring
-- **Audio Device Picker** — Hover button to switch input, persisted to localStorage
+- **Smart Host Election** — NAT type detection + bandwidth scoring, auto-select best host, manual NAT override
+- **RNNoise AI Denoising** — WASM-based real-time neural network noise suppression, toggleable vs browser denoising
+- **Audio Processing Pipeline** — Echo cancellation / noise suppression / RNNoise per-toggle, hot-swappable during calls
+- **Voice Activity Detection** — Green ring on avatar when speaking, P2P latency & quality scores displayed
+- **Microphone Controls** — Mute/unmute, volume slider, input device picker, accessible outside calls
+- **Speaker Controls** — Mute/unmute, volume slider, output device picker
+- **Self-Monitoring** — Hear your own mic independent of voice channels
 - **Heartbeat Detection** — Auto-kick offline clients from voice rooms
-- **Dark Mode** — Arco Design theme toggle
+- **Dark Mode** — Arco Design CSS variable theme toggle
 - **Cross-Platform** — Web / Tauri Desktop / Android / HarmonyOS (planned)
 - **Configurable Backend** — Frontend sets custom backend URL
 - **Configurable TURN** — Settings page for TURN server
@@ -113,9 +117,13 @@ cd GugleChatDesktop && cargo tauri build
 
 - **Star Topology**: First joiner → 👑 host, others connect only to host
 - **Smart Election**: NAT type + bandwidth, NAT1 weighted highest
+- **NAT Override**: Manual NAT type selection, takes the worse of manual vs detected
+- **Single-Room Enforcement**: Server prevents users from being in multiple voice channels
 - **Auto Failover**: Host leaves → next best takes over; heartbeat timeout kicks offline
 - **NAT Detection**: Multi-STUN server analysis, distinguishes Cone vs Symmetric NAT
 - **TURN Support**: Settings page config for symmetric NAT traversal
+- **RNNoise AI Denoising**: AudioWorklet + WASM, 48kHz real-time processing, mutually exclusive with browser denoising
+- **Latency Display**: P2P + server latency shown on user cards, color-coded
 
 ## Configuration
 
@@ -156,6 +164,7 @@ server:
 
 - **Backend URL**: Leave empty for proxy, set to connect directly
 - **Theme**: Dark / Light toggle
+- **NAT Type**: Manual override for auto-detection (Auto / NAT1-4), takes worse value
 - **TURN Server**: URL, username, password for NAT traversal
 
 ## Roadmap
