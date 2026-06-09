@@ -61,7 +61,7 @@ val DiscordDivider = Color(0xFF2B2D31)
 val DiscordGreen = Color(0xFF22C55E)
 
 @Composable
-fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
+fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit, onRequestAudioPermission: () -> Boolean = { true }) {
     val channels by viewModel.channels.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val current by viewModel.currentChannel.collectAsState()
@@ -82,7 +82,9 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
         VoiceScreen(channels, viewModel::endVoiceCall, viewModel::selectChannel)
     } else if (showChannels || current == null) {
         ChannelListScreen(
-            channels, viewModel::selectChannel, viewModel::startVoiceCall, viewModel::endVoiceCall, inVoiceCall, onLogout
+            channels, viewModel::selectChannel,
+            { ch -> if (onRequestAudioPermission()) viewModel.startVoiceCall(ch) },
+            viewModel::endVoiceCall, inVoiceCall, onLogout
         )
     } else {
         ChatScreen(current!!, messages, input, { input = it }, {
