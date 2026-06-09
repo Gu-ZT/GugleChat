@@ -227,8 +227,12 @@ function handleLogout() {
                           @change="rtcStore.toggleEchoCancellation()" style="margin-left:auto" />
               </a-form-item>
               <a-form-item label="Noise Suppression">
-                <a-switch :model-value="rtcStore.noiseSuppression" :disabled="!rtcStore.noiseFxEnabled" size="small"
+                <a-switch :model-value="rtcStore.noiseSuppression" :disabled="!rtcStore.noiseFxEnabled || rtcStore.rnnoiseEnabled" size="small"
                           @change="rtcStore.toggleNoiseSuppression()" style="margin-left:auto" />
+              </a-form-item>
+              <a-form-item label="RNNoise (AI)">
+                <a-switch :model-value="rtcStore.rnnoiseEnabled" :disabled="!rtcStore.noiseFxEnabled" size="small"
+                          @change="rtcStore.toggleRnnoise()" style="margin-left:auto" />
               </a-form-item>
             </div>
           </template>

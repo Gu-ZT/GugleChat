@@ -46,6 +46,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const echoCancellation = ref(localStorage.getItem('guglechat_echo_cancel') !== 'false')
     const noiseSuppression = ref(localStorage.getItem('guglechat_noise_suppress') !== 'false')
     const noiseFxEnabled = ref(localStorage.getItem('guglechat_noise_fx') === 'true')
+    const rnnoiseEnabled = ref(localStorage.getItem('guglechat_rnnoise') === 'true')
 
     interface VoiceUser {
         userId: number;
@@ -74,6 +75,8 @@ export const useRtcStore = defineStore('rtc', () => {
     let monitorGain: GainNode | null = null
     let micGainNode: GainNode | null = null
     let micProcessedTrack: MediaStreamTrack | null = null
+    let rnnoiseNode: AudioWorkletNode | null = null
+    let rnnoiseDest: MediaStreamAudioDestinationNode | null = null
 
     function setMicVolume(v: number) {
         micVolume.value = v
@@ -120,8 +123,9 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     function applyMicGain() {
-        if (!localStream.value) return
-        const origTrack = localStream.value.getAudioTracks()[0]
+        const srcStream = rnnoiseDest ? rnnoiseDest.stream : localStream.value
+        if (!srcStream) return
+        const origTrack = srcStream.getAudioTracks()[0]
         if (!origTrack) return
         if (micVolume.value === 100) {
             // Restore original track
@@ -136,7 +140,7 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         const ctx = audioCtx || new AudioContext()
         if (!micGainNode) {
-            const source = ctx.createMediaStreamSource(localStream.value)
+            const source = ctx.createMediaStreamSource(srcStream)
             micGainNode = ctx.createGain()
             micGainNode.gain.value = micVolume.value / 100
             const dest = ctx.createMediaStreamDestination()
@@ -346,6 +350,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: ac})
                 console.log('[RTC] microphone OK')
                 startVad()
+                if (rnnoiseEnabled.value) initRnnoise()
             } catch (e: any) {
                 console.error('[RTC] microphone denied:', e.name, e.message)
             }
@@ -461,17 +466,20 @@ export const useRtcStore = defineStore('rtc', () => {
             newTrack.enabled = audioEnabled.value
             localStream.value = new MediaStream()
         }
-        localStream.value.addTrack(newTrack)
+        localStream.value!.addTrack(newTrack)
         if (activeRoomId.value) {
             Object.values(remotePeers.value).forEach(peer => {
                 const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
                 if (sender) sender.replaceTrack(newTrack)
             })
         }
-        // Restart VAD, monitor and mic gain with new stream
+        // Restart VAD, RNNoise, monitor and mic gain with new stream
+        const wasRnnoise = rnnoiseEnabled.value && rnnoiseNode
         stopVad()
         stopMonitor()
+        if (wasRnnoise) destroyRnnoise()
         startVad()
+        if (wasRnnoise) await initRnnoise()
         if (monitoring.value) await startMonitor()
         if (micGainNode) {
             micGainNode.disconnect(); micGainNode = null
@@ -492,11 +500,76 @@ export const useRtcStore = defineStore('rtc', () => {
         refreshAudioStream()
     }
 
+    async function toggleRnnoise() {
+        rnnoiseEnabled.value = !rnnoiseEnabled.value
+        localStorage.setItem('guglechat_rnnoise', String(rnnoiseEnabled.value))
+        if (rnnoiseEnabled.value) {
+            if (noiseSuppression.value) toggleNoiseSuppression()
+            await initRnnoise()
+        } else {
+            destroyRnnoise()
+        }
+        // Restart monitoring with the new audio path
+        if (monitoring.value) {
+            stopMonitor()
+            await startMonitor()
+        }
+    }
+
+    async function initRnnoise() {
+        if (!audioCtx || !localStream.value) return
+        destroyRnnoise()
+        try {
+            const [{ NoiseSuppressorWorklet_Name }, { default: workletUrl }] = await Promise.all([
+                import('@timephy/rnnoise-wasm'),
+                // @ts-ignore Vite ?url suffix
+                import('@timephy/rnnoise-wasm/NoiseSuppressorWorklet?url')
+            ])
+            try { await audioCtx.audioWorklet.addModule(workletUrl) } catch (e: any) {
+                if (e.message && !e.message.includes('already')) throw e
+            }
+            const src = audioCtx.createMediaStreamSource(localStream.value)
+            rnnoiseNode = new AudioWorkletNode(audioCtx, NoiseSuppressorWorklet_Name)
+            rnnoiseDest = audioCtx.createMediaStreamDestination()
+            src.connect(rnnoiseNode).connect(rnnoiseDest)
+
+            // Replace outgoing audio track with RNNoise-processed track
+            const processedTrack = rnnoiseDest.stream.getAudioTracks()[0]
+            Object.values(remotePeers.value).forEach(peer => {
+                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
+                if (sender) sender.replaceTrack(processedTrack)
+            })
+            console.log('[RTC] RNNoise enabled')
+        } catch (e) {
+            console.error('[RTC] RNNoise init failed:', e)
+            rnnoiseEnabled.value = false
+            destroyRnnoise()
+        }
+    }
+
+    function destroyRnnoise() {
+        if (rnnoiseNode) {
+            rnnoiseNode.disconnect()
+            rnnoiseNode = null
+        }
+        rnnoiseDest = null
+        // Restore original track
+        if (localStream.value) {
+            const origTrack = localStream.value.getAudioTracks()[0]
+            if (origTrack) {
+                Object.values(remotePeers.value).forEach(peer => {
+                    const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
+                    if (sender) sender.replaceTrack(origTrack)
+                })
+            }
+        }
+    }
+
     function getAudioConstraints(): MediaTrackConstraints {
         const on = noiseFxEnabled.value
         return {
             echoCancellation: on && echoCancellation.value,
-            noiseSuppression: on && noiseSuppression.value,
+            noiseSuppression: on && noiseSuppression.value && !rnnoiseEnabled.value,
             autoGainControl: on,
         }
     }
@@ -641,16 +714,19 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function stopVad() {
         if (vadTimer) { cancelAnimationFrame(vadTimer); vadTimer = null }
+        destroyRnnoise()
         if (audioCtx) { audioCtx.close(); audioCtx = null }
         monitorGain = null
         speaking.value = false
     }
 
     async function startMonitor() {
-        if (!audioCtx || !localStream.value) return
+        if (!audioCtx) return
+        const monitorStream = (rnnoiseDest && rnnoiseNode) ? rnnoiseDest.stream : localStream.value
+        if (!monitorStream) return
         if (audioCtx.state === 'suspended') await audioCtx.resume()
         stopMonitor()
-        const source = audioCtx.createMediaStreamSource(localStream.value)
+        const source = audioCtx.createMediaStreamSource(monitorStream)
         monitorGain = audioCtx.createGain()
         monitorGain.gain.value = 1.0
         source.connect(monitorGain)
@@ -752,6 +828,7 @@ export const useRtcStore = defineStore('rtc', () => {
         echoCancellation, toggleEchoCancellation,
         noiseSuppression, toggleNoiseSuppression,
         noiseFxEnabled, toggleNoiseFx,
+        rnnoiseEnabled, toggleRnnoise,
         micVolume, setMicVolume,
         speakerVolume, setSpeakerVolume,
         audioOutputs, currentOutputDevice, enumerateAudioOutputs, switchAudioOutput,
