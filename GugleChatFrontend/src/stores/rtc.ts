@@ -443,7 +443,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     async function refreshAudioStream() {
-        if (!activeRoomId.value) return
+        if (!activeRoomId.value && !monitoring.value) return
         const ac: MediaTrackConstraints = getAudioConstraints()
         if (currentAudioDevice.value) {
             (ac as any).deviceId = { exact: currentAudioDevice.value }
@@ -452,16 +452,22 @@ export const useRtcStore = defineStore('rtc', () => {
         const oldTrack = localStream.value?.getAudioTracks()[0]
         const newTrack = newStream.getAudioTracks()[0]
         if (!newTrack) return
+        // Preserve enabled state from old track
         if (oldTrack) {
             newTrack.enabled = oldTrack.enabled
             localStream.value?.removeTrack(oldTrack)
             oldTrack.stop()
+        } else {
+            newTrack.enabled = audioEnabled.value
+            localStream.value = new MediaStream()
         }
-        localStream.value?.addTrack(newTrack)
-        Object.values(remotePeers.value).forEach(peer => {
-            const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
-            if (sender) sender.replaceTrack(newTrack)
-        })
+        localStream.value.addTrack(newTrack)
+        if (activeRoomId.value) {
+            Object.values(remotePeers.value).forEach(peer => {
+                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'audio')
+                if (sender) sender.replaceTrack(newTrack)
+            })
+        }
         // Restart VAD, monitor and mic gain with new stream
         stopVad()
         stopMonitor()
