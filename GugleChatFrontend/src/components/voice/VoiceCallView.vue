@@ -22,6 +22,12 @@ function hasVideo(uid: number): boolean {
   if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) && (rtcStore.localStream?.getVideoTracks().length ?? 0) > 0
   return (rtcStore.remotePeers[uid]?.stream?.getVideoTracks().length ?? 0) > 0
 }
+function latencyColor(ms: number): string {
+  if (ms < 0) return '#949ba4'
+  if (ms < 100) return '#22c55e'
+  if (ms <= 250) return '#fbbf24'
+  return '#ef4444'
+}
 function getStream(uid: number): MediaStream | null {
   if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) ? rtcStore.localStream : null
   const s = rtcStore.remotePeers[uid]?.stream
@@ -51,7 +57,8 @@ function getStream(uid: number): MediaStream | null {
     <div v-if="focusedUserId === null" class="vc-participants">
       <div v-for="u in rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0)" :key="u.userId"
            class="vc-card" :class="{ 'has-video': hasVideo(u.userId) }" @dblclick="hasVideo(u.userId) && toggleFocus(u.userId)">
-        <div class="vc-latency">
+        <div class="vc-latency"
+             :style="{ color: u.userId === authStore.user?.id ? latencyColor(wsStore.serverLatency) : latencyColor(rtcStore.remotePeers[u.userId]?.latency ?? -1) }">
           <template v-if="u.userId === authStore.user?.id">
             {{ wsStore.serverLatency >= 0 ? wsStore.serverLatency + 'ms' : '--' }}
           </template>
