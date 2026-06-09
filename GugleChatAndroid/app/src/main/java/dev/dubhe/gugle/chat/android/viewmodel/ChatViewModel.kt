@@ -20,6 +20,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // State — declared before init to avoid NPE
     var wsManager: WebSocketManager? = null
+    var voiceCall: VoiceCallManager? = null
+    private val _inVoiceCall = MutableStateFlow(false)
+    val inVoiceCall = _inVoiceCall.asStateFlow()
+    private val _remoteVoiceStream = MutableStateFlow<org.webrtc.MediaStream?>(null)
+    val remoteVoiceStream = _remoteVoiceStream.asStateFlow()
     private val _token = MutableStateFlow<String?>(prefs.getString("token", null))
     val token = _token.asStateFlow()
     private val _channels = MutableStateFlow<List<Channel>>(emptyList())
@@ -47,28 +52,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun buildApi(): ApiService {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                val t = prefs.getString("token", "") ?: ""
-                val req = chain.request().newBuilder()
-                    .header("Authorization", "Bearer $t").build()
-                chain.proceed(req)
-            }.build()
-        return Retrofit.Builder()
-            .baseUrl(buildBaseUrl())
-            .client(client).addConverterFactory(GsonConverterFactory.create()).build()
+        val client =
+            OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).addInterceptor { chain ->
+                    val t = prefs.getString("token", "") ?: ""
+                    val req =
+                        chain.request().newBuilder().header("Authorization", "Bearer $t").build()
+                    chain.proceed(req)
+                }.build()
+        return Retrofit.Builder().baseUrl(buildBaseUrl()).client(client)
+            .addConverterFactory(GsonConverterFactory.create()).build()
             .create(ApiService::class.java)
     }
 
-    fun setBackendUrl(url: String) { prefs.edit().putString("backend_url", url).commit() }
+    fun setBackendUrl(url: String) {
+        prefs.edit().putString("backend_url", url).commit()
+    }
 
     fun login(username: String, password: String, backendUrl: String, onError: (String) -> Unit) {
         if (backendUrl.isNotEmpty()) setBackendUrl(backendUrl)
         val api = buildApi()
         viewModelScope.launch {
             try {
-                val res = withContext(Dispatchers.IO) { api.login(LoginRequest(username, password)).execute() }
+                val res = withContext(Dispatchers.IO) {
+                    api.login(LoginRequest(username, password)).execute()
+                }
                 if (res.isSuccessful && res.body()?.code == 200) {
                     val data = res.body()!!.data
                     prefs.edit().putString("token", data.token).commit()
@@ -84,12 +91,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun register(username: String, email: String, password: String, backendUrl: String, onError: (String) -> Unit) {
+    fun register(
+        username: String,
+        email: String,
+        password: String,
+        backendUrl: String,
+        onError: (String) -> Unit
+    ) {
         if (backendUrl.isNotEmpty()) setBackendUrl(backendUrl)
         val api = buildApi()
         viewModelScope.launch {
             try {
-                val res = withContext(Dispatchers.IO) { api.register(RegisterRequest(username, email, password)).execute() }
+                val res = withContext(Dispatchers.IO) {
+                    api.register(
+                        RegisterRequest(
+                            username, email, password
+                        )
+                    ).execute()
+                }
                 if (res.isSuccessful && res.body()?.code == 200) {
                     val data = res.body()!!.data
                     prefs.edit().putString("token", data.token).commit()
@@ -120,7 +139,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _channels.value = res.body()!!.data
                     Log.d("GugleChat", "Loaded ${_channels.value.size} channels")
                 } else Log.e("GugleChat", "Channels failed: ${res.code()} ${res.body()?.message}")
-            } catch (e: Exception) { Log.e("GugleChat", "Channels error", e) }
+            } catch (e: Exception) {
+                Log.e("GugleChat", "Channels error", e)
+            }
         }
     }
 
@@ -134,11 +155,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val api = buildApi()
         viewModelScope.launch {
             try {
-                val res = withContext(Dispatchers.IO) { api.getMessages(channelId, before).execute() }
+                val res =
+                    withContext(Dispatchers.IO) { api.getMessages(channelId, before).execute() }
                 if (res.isSuccessful && res.body()?.code == 200) {
                     _messages.value = res.body()!!.data.reversed()
                 }
-            } catch (e: Exception) { Log.e("GugleChat", "Messages error", e) }
+            } catch (e: Exception) {
+                Log.e("GugleChat", "Messages error", e)
+            }
         }
     }
 
@@ -147,21 +171,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         wsManager?.sendMessage(ch.id, content)
     }
 
+    fun startVoiceCall(channel: Channel) {
+        if (channel.type != "VOICE") return
+        voiceCall = VoiceCallManager(
+            getApplication(), { dest, payload -> wsManager?.sendSignal(dest, payload) }).also {
+            it.setOnRemoteStream { stream -> _remoteVoiceStream.value = stream }
+            it.startCall(channel.id)
+        }
+        _inVoiceCall.value = true
+    }
+
+    fun endVoiceCall() {
+        voiceCall?.endCall()
+        voiceCall = null
+        _inVoiceCall.value = false
+        _remoteVoiceStream.value = null
+    }
+
+    fun handleRtcMessage(type: String, data: Map<String, Any>) {
+        voiceCall?.onRtcMessage(type, data)
+    }
+
     private fun connectWs() {
         val t = _token.value
-        if (t == null) { Log.w("GugleChat", "connectWs: no token"); return }
+        if (t == null) {
+            Log.w("GugleChat", "connectWs: no token"); return
+        }
         val url = buildBaseUrl()
         Log.i("GugleChat", "connectWs: $url token=${t.take(20)}...")
-        wsManager = WebSocketManager(
-            baseUrl = url.trimEnd('/'),
-            token = t,
-            onMessage = { msg ->
-                if (msg.channelId == _currentChannel.value?.id) {
-                    _messages.value = _messages.value + msg
-                }
-            },
-            onVoiceUsers = { _, _ -> }
-        )
+        wsManager = WebSocketManager(baseUrl = url.trimEnd('/'), token = t, onMessage = { msg ->
+            if (msg.channelId == _currentChannel.value?.id) {
+                _messages.value = _messages.value + msg
+            }
+        }, onVoiceUsers = { _, _ -> }, onRtcSignal = { data ->
+            val type = data["type"] as? String ?: return@WebSocketManager
+            handleRtcMessage(type, data)
+        })
         wsManager?.connect()
     }
 }

@@ -66,6 +66,9 @@ dependencies {
     implementation(libs.ext.strikethrough)
     implementation(libs.ext.tables)
 
+    // WebRTC
+    implementation(libs.stream.webrtc.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

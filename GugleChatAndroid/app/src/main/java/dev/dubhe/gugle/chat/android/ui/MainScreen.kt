@@ -57,31 +57,35 @@ val DiscordAccent = Color(0xFF5865F2)
 val DiscordText = Color(0xFFDBDEE1)
 val DiscordMuted = Color(0xFF949BA4)
 val DiscordDivider = Color(0xFF2B2D31)
+val DiscordGreen = Color(0xFF22C55E)
 
 @Composable
 fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
     val channels by viewModel.channels.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val current by viewModel.currentChannel.collectAsState()
+    val inVoiceCall by viewModel.inVoiceCall.collectAsState()
     var showChannels by remember { mutableStateOf(true) }
     var prevChannel by remember { mutableStateOf<Channel?>(null) }
     var input by remember { mutableStateOf("") }
 
-    // Auto-switch to chat ONLY when channel was just selected (not on back)
     if (current != null && current != prevChannel) {
-        prevChannel = current
-        showChannels = false
+        prevChannel = current; showChannels = false
     }
     if (current == null && !showChannels) showChannels = true
-
-    // Back button returns to channel list instead of exiting
-    BackHandler(enabled = !showChannels) {
-        showChannels = true
-        prevChannel = null
+    BackHandler(enabled = !showChannels && current != null) {
+        showChannels = true; prevChannel = null
     }
 
     if (showChannels || current == null) {
-        ChannelListScreen(channels, viewModel::selectChannel, onLogout)
+        ChannelListScreen(
+            channels,
+            viewModel::selectChannel,
+            viewModel::startVoiceCall,
+            viewModel::endVoiceCall,
+            inVoiceCall,
+            onLogout
+        )
     } else {
         ChatScreen(current!!, messages, input, { input = it }, {
             if (input.isNotBlank()) {
@@ -92,22 +96,28 @@ fun MainScreen(viewModel: ChatViewModel, onLogout: () -> Unit) {
 }
 
 @Composable
-fun ChannelListScreen(channels: List<Channel>, onSelect: (Channel) -> Unit, onLogout: () -> Unit) {
-    Column(Modifier
-        .fillMaxSize()
-        .background(DiscordSidebar)) {
+fun ChannelListScreen(
+    channels: List<Channel>,
+    onSelect: (Channel) -> Unit,
+    onVoiceJoin: (Channel) -> Unit,
+    onVoiceLeave: () -> Unit,
+    inVoiceCall: Boolean,
+    onLogout: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(DiscordSidebar)
+    ) {
         Row(
             Modifier
                 .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text("GugleChat", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             TextButton(onClick = onLogout) {
                 Text(
-                    "Logout",
-                    color = DiscordMuted,
-                    fontSize = 13.sp
+                    "Logout", color = DiscordMuted, fontSize = 13.sp
                 )
             }
         }
@@ -144,6 +154,18 @@ fun ChannelListScreen(channels: List<Channel>, onSelect: (Channel) -> Unit, onLo
                                 fontSize = 12.sp
                             )
                         }
+                        if (ch.type == "VOICE") {
+                            if (inVoiceCall) TextButton(onClick = onVoiceLeave) {
+                                Text(
+                                    "Leave", color = Color(0xFFED4245), fontSize = 12.sp
+                                )
+                            }
+                            else TextButton(onClick = { onVoiceJoin(ch) }) {
+                                Text(
+                                    "Join", color = DiscordGreen, fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -153,13 +175,18 @@ fun ChannelListScreen(channels: List<Channel>, onSelect: (Channel) -> Unit, onLo
 
 @Composable
 fun ChatScreen(
-    channel: Channel, messages: List<Message>,
-    input: String, onInput: (String) -> Unit,
-    onSend: () -> Unit, onBack: () -> Unit
+    channel: Channel,
+    messages: List<Message>,
+    input: String,
+    onInput: (String) -> Unit,
+    onSend: () -> Unit,
+    onBack: () -> Unit
 ) {
-    Column(Modifier
-        .fillMaxSize()
-        .background(DiscordBg)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(DiscordBg)
+    ) {
         // Top bar with back
         Surface(Modifier.fillMaxWidth(), color = DiscordBg) {
             Row(
@@ -172,7 +199,9 @@ fun ChatScreen(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "${if (channel.type == "VOICE") "🔊 " else "# "}${channel.name}",
-                    color = DiscordText, fontWeight = FontWeight.Bold, fontSize = 16.sp
+                    color = DiscordText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
             }
         }
@@ -182,29 +211,36 @@ fun ChatScreen(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            reverseLayout = true
+                .padding(horizontal = 12.dp), reverseLayout = true
         ) {
             items(messages.reversed()) { msg -> MessageBubble(msg) }
         }
 
         HorizontalDivider(color = DiscordDivider)
-        Row(Modifier
-            .fillMaxWidth()
-            .padding(12.dp), verticalAlignment = Alignment.Bottom) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp), verticalAlignment = Alignment.Bottom
+        ) {
             OutlinedTextField(
-                input, onInput, Modifier.weight(1f), singleLine = true,
+                input,
+                onInput,
+                Modifier.weight(1f),
+                singleLine = true,
                 placeholder = { Text("Message #${channel.name}", color = DiscordMuted) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color(0xFF383A40),
                     unfocusedContainerColor = Color(0xFF383A40),
-                    focusedTextColor = DiscordText, unfocusedTextColor = DiscordText,
-                    focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent
+                    focusedTextColor = DiscordText,
+                    unfocusedTextColor = DiscordText,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
                 )
             )
             Spacer(Modifier.width(8.dp))
             FilledIconButton(
-                onClick = onSend, enabled = input.isNotBlank(),
+                onClick = onSend,
+                enabled = input.isNotBlank(),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = DiscordAccent)
             ) {
                 Text("➤", color = Color.White, fontSize = 16.sp)
@@ -218,20 +254,15 @@ fun MessageBubble(msg: Message) {
     val ctx = LocalContext.current
     val avatarColor = Color(msg.username.hashCode() or 0xFF000000.toInt())
     val markwon = remember {
-        Markwon.builder(ctx)
-            .usePlugin(CoilImagesPlugin.create(ctx))
-            .usePlugin(LinkifyPlugin.create())
-            .usePlugin(TablePlugin.create(ctx))
-            .usePlugin(StrikethroughPlugin.create())
-            .build()
+        Markwon.builder(ctx).usePlugin(CoilImagesPlugin.create(ctx))
+            .usePlugin(LinkifyPlugin.create()).usePlugin(TablePlugin.create(ctx))
+            .usePlugin(StrikethroughPlugin.create()).build()
     }
 
     Column(Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
-                Modifier.size(36.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = avatarColor
+                Modifier.size(36.dp), shape = MaterialTheme.shapes.extraLarge, color = avatarColor
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -257,8 +288,7 @@ fun MessageBubble(msg: Message) {
                             SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                         } catch (_: Exception) {
                             ""
-                        },
-                        color = DiscordMuted, fontSize = 11.sp
+                        }, color = DiscordMuted, fontSize = 11.sp
                     )
                 }
                 AndroidView(
