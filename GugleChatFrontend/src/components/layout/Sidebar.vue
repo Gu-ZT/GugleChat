@@ -222,17 +222,17 @@ function handleLogout() {
           <template #content>
             <div class="device-list" style="min-width:180px">
               <div class="device-title">Audio Processing</div>
-              <a-form-item label="Echo Cancellation">
-                <a-switch :model-value="rtcStore.echoCancellation" :disabled="!rtcStore.noiseFxEnabled" size="small"
-                          @change="rtcStore.toggleEchoCancellation()" style="margin-left:auto" />
+              <a-form-item label="RNNoise (AI)">
+                <a-switch :model-value="rtcStore.rnnoiseEnabled" :disabled="!rtcStore.noiseFxEnabled" size="small"
+                          @change="rtcStore.toggleRnnoise()" style="margin-left:auto" />
               </a-form-item>
               <a-form-item label="Noise Suppression">
                 <a-switch :model-value="rtcStore.noiseSuppression" :disabled="!rtcStore.noiseFxEnabled || rtcStore.rnnoiseEnabled" size="small"
                           @change="rtcStore.toggleNoiseSuppression()" style="margin-left:auto" />
               </a-form-item>
-              <a-form-item label="RNNoise (AI)">
-                <a-switch :model-value="rtcStore.rnnoiseEnabled" :disabled="!rtcStore.noiseFxEnabled" size="small"
-                          @change="rtcStore.toggleRnnoise()" style="margin-left:auto" />
+              <a-form-item label="Echo Cancellation">
+                <a-switch :model-value="rtcStore.echoCancellation" :disabled="!rtcStore.noiseFxEnabled" size="small"
+                          @change="rtcStore.toggleEchoCancellation()" style="margin-left:auto" />
               </a-form-item>
             </div>
           </template>
