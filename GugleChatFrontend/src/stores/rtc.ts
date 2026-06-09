@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {ref} from 'vue'
+import {ref, watch} from 'vue'
 import {useSettingsStore} from './settings'
 import {useAuthStore} from './auth'
 
@@ -66,6 +66,11 @@ export const useRtcStore = defineStore('rtc', () => {
     const voiceUsersByChannel = ref<Record<number, VoiceUser[]>>({})
     const showVoiceChat = ref(false)
     const hostId = ref<number | null>(null)
+    watch(hostId, () => {
+        relayLatencies.value = {}
+        peerConnStates.value = {}
+        broadcastSpeaking.value = {}
+    })
     const speaking = ref(false)
     const remoteSpeaking = ref<Record<number, boolean>>({})
     const monitoring = ref(false)
