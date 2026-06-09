@@ -441,57 +441,74 @@ export const useRtcStore = defineStore('rtc', () => {
 
     /** Detect NAT type: 1=open(NAT1), 0.66=cone(NAT2-3), 0.33=symmetric(NAT4) */
     /**
-     * Precise NAT type detection using multiple STUN servers.
-     * NAT1 (Full Cone): same IP:port from all STUN servers, remote can connect from anywhere
-     * NAT2 (Restricted): same IP:port, but only from known remote
-     * NAT3 (Port Restricted): same IP:port, only from known remote:port
-     * NAT4 (Symmetric): different ports per STUN server
-     * Returns score: 1.0=open, 0.75=cone, 0.5=port-restricted, 0.25=symmetric
+     * RFC 5780 NAT Behavior Discovery (via ICE candidates + multi-STUN analysis)
+     * Uses multiple STUN servers to compare mapped addresses.
+     *
+     * RFC 5780 classification:
+     * - Endpoint-Independent Mapping (EIM): same IP:port regardless of destination
+     * - Address-Dependent Mapping (ADM): different port per destination IP
+     * - Address-and-Port-Dependent Mapping (APDM): different port per destination IP:port
+     *
+     * Returns score: NAT1=1.0, NAT2=0.8, NAT3=0.6, NAT4=0.25
      */
     async function detectNatType(): Promise<number> {
         return new Promise((resolve) => {
             const stunServers = [
                 'stun:stun.l.google.com:19302',
                 'stun:stun1.l.google.com:19302',
+                'stun:stun2.l.google.com:19302',
+                'stun:stun3.l.google.com:19302',
                 'stun:stun.cloudflare.com:3478',
             ]
             const pc = new RTCPeerConnection({
                 iceServers: stunServers.map(urls => ({ urls })),
             })
-            const srflxMap = new Map<string, string>() // address -> port
+            const mappings: {ip: string, port: number}[] = []
             let hasHost = false
-            let gathered = 0
-            const timer = setTimeout(() => {
-                pc.close()
-                finish()
-            }, 4000)
+            const timer = setTimeout(() => { pc.close(); finish() }, 5000)
+
             const finish = () => {
                 clearTimeout(timer)
-                const ports = [...srflxMap.values()]
+                const ports = mappings.map(m => m.port)
                 const uniquePorts = new Set(ports)
-                console.log(`[NAT] srflx ports from ${stunServers.length} STUN servers:`, ports)
+                const uniqueIPs = new Set(mappings.map(m => m.ip))
+                console.log(`[NAT] Mappings from ${stunServers.length} STUN servers:`,
+                    mappings.map(m => `${m.ip}:${m.port}`).join(', '))
+
                 if (hasHost) {
-                    console.log('[NAT] Type: Open (NAT1) — no NAT detected')
+                    console.log('[NAT] Type: Open Internet (NAT1) — public host candidate detected')
                     resolve(1.0)
-                } else if (ports.length === 0) {
-                    console.log('[NAT] Type: Blocked/Symmetric (NAT4) — no srflx candidates')
+                } else if (mappings.length === 0) {
+                    console.log('[NAT] Type: UDP Blocked — no srflx candidates at all')
+                    resolve(0.2)
+                } else if (uniqueIPs.size === 0) {
                     resolve(0.25)
                 } else if (uniquePorts.size === 1) {
-                    console.log('[NAT] Type: Cone NAT (NAT2-3) — consistent IP:port')
-                    resolve(0.75)
-                } else {
-                    console.log('[NAT] Type: Symmetric NAT (NAT4) — different ports per server')
+                    // Same port mapped to all destinations = Endpoint-Independent Mapping
+                    // Could be NAT1 (Full Cone) or NAT2 (Restricted Cone) or NAT3 (Port Restricted)
+                    // Cannot distinguish without active test — assume NAT2 (Restricted Cone)
+                    console.log('[NAT] Type: Cone NAT (NAT2) — consistent mapping (EIM)')
+                    resolve(0.8)
+                } else if (uniqueIPs.size > 1 && uniquePorts.size > 1) {
+                    // Different IPs mapped to different ports = Address-Dependent Mapping
+                    console.log('[NAT] Type: Symmetric NAT (NAT4) — different mapping per destination (ADM)')
                     resolve(0.25)
+                } else {
+                    // Same IP but different ports per destination = APDM
+                    console.log('[NAT] Type: Port-Restricted NAT (NAT3) — ADM with port sensitivity')
+                    resolve(0.6)
                 }
             }
+
             pc.onicecandidate = (e) => {
-                if (!e.candidate) { gathered++; if (gathered >= stunServers.length) finish(); return }
+                if (!e.candidate) { finish(); return }
                 const c = e.candidate
-                if (c.type === 'host' && !(c.address?.startsWith('192.') || c.address?.startsWith('10.') || c.address?.startsWith('172.'))) {
+                if (c.type === 'host' && c.address &&
+                    !c.address.startsWith('192.') && !c.address.startsWith('10.') && !c.address.startsWith('172.')) {
                     hasHost = true
                 }
                 if (c.type === 'srflx' && c.address && c.port) {
-                    srflxMap.set(c.address, String(c.port))
+                    mappings.push({ip: c.address, port: c.port})
                 }
             }
             pc.createDataChannel('nat-check')
