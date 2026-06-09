@@ -270,7 +270,7 @@ function handleLogout() {
 .sidebar {
   width: 260px;
   min-width: 260px;
-  background: #1e1f22;
+  background: var(--color-bg-1);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -287,17 +287,17 @@ function handleLogout() {
 }
 
 .resize-handle:hover, .resize-handle:active {
-  background: #5865f2;
+  background: rgb(var(--primary-6));
 }
 
 .server-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #2b2d31;
+  border-bottom: 1px solid var(--color-border-2);
   cursor: pointer;
 }
 
 .server-header:hover {
-  background: #35373c;
+  background: var(--color-bg-3);
 }
 
 .server-name {
@@ -322,7 +322,7 @@ function handleLogout() {
   gap: 4px;
   padding: 16px 8px 6px 8px;
   font-size: 11px;
-  color: #949ba4;
+  color: var(--color-text-3);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -330,12 +330,10 @@ function handleLogout() {
 }
 
 .section-header:hover {
-  color: #dbdee1;
+  color: var(--color-text-1);
 }
 
-.section-arrow {
-  font-size: 10px;
-}
+.section-arrow { font-size: 10px; }
 
 .add-icon {
   margin-left: auto;
@@ -343,9 +341,7 @@ function handleLogout() {
   opacity: 0;
 }
 
-.section-header:hover .add-icon {
-  opacity: 1;
-}
+.section-header:hover .add-icon { opacity: 1; }
 
 .channel-item {
   display: flex;
@@ -355,23 +351,23 @@ function handleLogout() {
   margin: 1px 0;
   border-radius: 4px;
   cursor: pointer;
-  color: #949ba4;
+  color: var(--color-text-3);
   font-size: 14px;
   transition: background .1s;
 }
 
 .channel-item:hover {
-  background: #35373c;
-  color: #dbdee1;
+  background: var(--color-bg-3);
+  color: var(--color-text-1);
 }
 
 .channel-item.active {
-  background: #404249;
-  color: #f2f3f5;
+  background: var(--color-bg-4);
+  color: var(--color-text-1);
 }
 
 .channel-item.voice-joined {
-  color: #22c55e;
+  color: rgb(var(--green-6));
 }
 
 .ch-icon {
@@ -383,7 +379,7 @@ function handleLogout() {
 
 .ch-hash {
   font-weight: 600;
-  color: #949ba4;
+  color: var(--color-text-3);
 }
 
 .ch-name {
@@ -398,14 +394,14 @@ function handleLogout() {
   align-items: center;
   gap: 3px;
   font-size: 11px;
-  color: #22c55e;
+  color: rgb(var(--green-6));
 }
 
 .count-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #22c55e;
+  background: rgb(var(--green-6));
 }
 
 .voice-users-list {
@@ -418,16 +414,12 @@ function handleLogout() {
   gap: 6px;
   padding: 3px 0;
   font-size: 13px;
-  color: #949ba4;
+  color: var(--color-text-3);
 }
 
-.vu-icon {
-  font-size: 14px;
-}
+.vu-icon { font-size: 14px; }
 
-.vu-icon.speaking {
-  color: #22c55e;
-}
+.vu-icon.speaking { color: rgb(var(--green-6)); }
 
 .vu-dot {
   width: 8px;
@@ -438,8 +430,8 @@ function handleLogout() {
 }
 
 .vu-dot.vu-speaking {
-  background: #22c55e !important;
-  box-shadow: 0 0 6px #22c55e;
+  background: rgb(var(--green-6)) !important;
+  box-shadow: 0 0 6px rgb(var(--green-6));
 }
 
 .vu-name {
@@ -450,13 +442,13 @@ function handleLogout() {
 
 .vu-state {
   font-size: 10px;
-  color: #949ba4;
+  color: var(--color-text-3);
   margin-left: auto;
 }
 
 .vu-quality {
   font-size: 10px;
-  color: #fbbf24;
+  color: rgb(var(--orange-6));
   margin-left: auto;
 }
 
@@ -465,12 +457,10 @@ function handleLogout() {
   margin-left: auto;
 }
 
-.channel-item:hover .ch-chat-btn {
-  opacity: 1;
-}
+.channel-item:hover .ch-chat-btn { opacity: 1; }
 
 .ch-chat-btn :deep(.arco-btn) {
-  color: #b5bac1;
+  color: var(--color-text-2);
 }
 
 /* Voice controls panel */
@@ -479,9 +469,9 @@ function handleLogout() {
   align-items: center;
   justify-content: space-between;
   padding: 8px 8px;
-  background: #232428;
-  border-top: 1px solid #2b2d31;
-  border-bottom: 1px solid #2b2d31;
+  background: var(--color-bg-2);
+  border-top: 1px solid var(--color-border-2);
+  border-bottom: 1px solid var(--color-border-2);
   gap: 4px;
 }
 
@@ -493,14 +483,14 @@ function handleLogout() {
 }
 
 .vcp-signal {
-  color: #22c55e;
+  color: rgb(var(--green-6));
   font-size: 16px;
   flex-shrink: 0;
 }
 
 .vcp-text {
   font-size: 12px;
-  color: #22c55e;
+  color: rgb(var(--green-6));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -511,16 +501,16 @@ function handleLogout() {
 }
 
 .vcp-actions :deep(.arco-btn-text) {
-  color: #b5bac1;
+  color: var(--color-text-2);
 }
 
 .vcp-actions :deep(.arco-btn-text:hover) {
-  color: #dbdee1;
-  background: #35373c;
+  color: var(--color-text-1);
+  background: var(--color-bg-3);
 }
 
 .vcp-actions :deep(.arco-btn-text.active) {
-  color: #22c55e;
+  color: rgb(var(--green-6));
 }
 
 .vcp-actions :deep(.arco-checkbox) {
@@ -533,7 +523,7 @@ function handleLogout() {
 
 .device-title {
   font-size: 11px;
-  color: #949ba4;
+  color: var(--color-text-3);
   font-weight: 600;
   text-transform: uppercase;
   padding: 4px 0 8px;
@@ -544,23 +534,23 @@ function handleLogout() {
   padding: 6px 8px;
   border-radius: 4px;
   cursor: pointer;
-  color: #dbdee1;
+  color: var(--color-text-1);
 }
 
 .device-item:hover {
-  background: #5865f2;
+  background: rgb(var(--primary-6));
   color: #fff;
 }
 
 .device-item.active {
-  color: #22c55e;
+  color: rgb(var(--green-6));
 }
 
 .context-menu {
   position: fixed;
   z-index: 1000;
-  background: #1e1f22;
-  border: 1px solid #2b2d31;
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border-2);
   border-radius: 4px;
   padding: 4px 0;
   min-width: 160px;
@@ -573,19 +563,17 @@ function handleLogout() {
   gap: 8px;
   padding: 6px 12px;
   font-size: 13px;
-  color: #b5bac1;
+  color: var(--color-text-2);
   cursor: pointer;
 }
 
 .ctx-item:hover {
-  background: #5865f2;
+  background: rgb(var(--primary-6));
   color: #fff;
   border-radius: 2px;
 }
 
-.ctx-icon {
-  font-size: 14px;
-}
+.ctx-icon { font-size: 14px; }
 
 /* Bottom user panel */
 .user-panel {
@@ -594,7 +582,7 @@ function handleLogout() {
   gap: 8px;
   padding: 0 8px;
   height: 52px;
-  background: #232428;
+  background: var(--color-bg-2);
   margin-top: auto;
 }
 
@@ -602,7 +590,7 @@ function handleLogout() {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #5865f2;
+  background: rgb(var(--primary-6));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -619,13 +607,13 @@ function handleLogout() {
 
 .user-name {
   font-size: 13px;
-  color: #f2f3f5;
+  color: var(--color-text-1);
   font-weight: 600;
 }
 
 .user-status {
   font-size: 11px;
-  color: #949ba4;
+  color: var(--color-text-3);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -639,7 +627,7 @@ function handleLogout() {
 }
 
 .status-dot.online {
-  background: #22c55e;
+  background: rgb(var(--green-6));
 }
 
 .user-actions {
@@ -648,11 +636,11 @@ function handleLogout() {
 }
 
 .user-actions :deep(.arco-btn-text) {
-  color: #b5bac1;
+  color: var(--color-text-2);
 }
 
 .user-actions :deep(.arco-btn-text:hover) {
-  color: #dbdee1;
-  background: #35373c;
+  color: var(--color-text-1);
+  background: var(--color-bg-3);
 }
 </style>

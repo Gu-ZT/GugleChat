@@ -72,7 +72,7 @@ async function handleLogin() {
 .auth-container {
   display: flex; align-items: center; justify-content: center;
   height: 100vh;
-  background: #313338;
+  background: var(--color-bg-1);
 }
 .auth-card { width: 400px; max-width: 90vw; }
 .auth-header { display: flex; justify-content: space-between; align-items: center; }

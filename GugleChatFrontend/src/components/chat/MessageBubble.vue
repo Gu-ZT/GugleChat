@@ -47,8 +47,8 @@ const avatarColor = computed(() => {
 .msg-body { min-width: 0; flex: 1; }
 .msg-header { display: flex; gap: 8px; align-items: baseline; }
 .msg-user { font-weight: 600; font-size: 15px; }
-.msg-time { font-size: 11px; color: #949ba4; opacity: 0; transition: opacity .1s; }
+.msg-time { font-size: 11px; color: var(--color-text-3); opacity: 0; transition: opacity .1s; }
 .msg:hover .msg-time { opacity: 1; }
-.msg-edited { font-size: 10px; color: #949ba4; }
-.msg-content { word-break: break-word; font-size: 15px; line-height: 1.5; color: #dbdee1; margin-top: 1px; }
+.msg-edited { font-size: 10px; color: var(--color-text-3); }
+.msg-content { word-break: break-word; font-size: 15px; line-height: 1.5; color: var(--color-text-1); margin-top: 1px; }
 </style>

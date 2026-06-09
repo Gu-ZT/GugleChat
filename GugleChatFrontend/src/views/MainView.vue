@@ -67,11 +67,11 @@ onUnmounted(() => wsStore.disconnect())
 .main-layout { display: flex; height: 100vh; }
 .main-content {
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
-  background: #313338;
+  background: var(--color-bg-1);
 }
 .empty-state {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; color: #949ba4;
+  justify-content: center; color: var(--color-text-3);
 }
 .empty-state h2 { font-size: 24px; margin-bottom: 8px; }
 </style>

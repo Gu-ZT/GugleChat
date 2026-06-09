@@ -28,10 +28,10 @@ export function connStateLabel(state: string): string {
 
 export function connStateColor(state: string): string {
     switch (state) {
-        case 'connected': case 'completed': return '#22c55e'
-        case 'checking': case 'new': case 'connecting': return '#fbbf24'
-        case 'failed': case 'disconnected': return '#ef4444'
-        default: return '#888'
+        case 'connected': case 'completed': return 'rgb(var(--green-6))'
+        case 'checking': case 'new': case 'connecting': return 'rgb(var(--orange-6))'
+        case 'failed': case 'disconnected': return 'rgb(var(--red-6))'
+        default: return 'var(--color-text-3)'
     }
 }
 

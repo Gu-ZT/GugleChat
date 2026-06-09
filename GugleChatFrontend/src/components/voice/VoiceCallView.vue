@@ -23,10 +23,10 @@ function hasVideo(uid: number): boolean {
   return (rtcStore.remotePeers[uid]?.stream?.getVideoTracks().length ?? 0) > 0
 }
 function latencyColor(ms: number): string {
-  if (ms < 0) return '#949ba4'
-  if (ms < 100) return '#22c55e'
-  if (ms <= 250) return '#fbbf24'
-  return '#ef4444'
+  if (ms < 0) return 'var(--color-text-3)'
+  if (ms < 100) return 'rgb(var(--green-6))'
+  if (ms <= 250) return 'rgb(var(--orange-6))'
+  return 'rgb(var(--red-6))'
 }
 function getStream(uid: number): MediaStream | null {
   if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) ? rtcStore.localStream : null
@@ -101,12 +101,12 @@ function getStream(uid: number): MediaStream | null {
 <style scoped>
 .voice-call-view {
   flex: 1; display: flex; flex-direction: column;
-  background: #313338; position: relative;
+  background: var(--color-bg-1); position: relative;
 }
 .vc-header {
   display: flex; align-items: center; gap: 8px;
-  font-size: 14px; color: #22c55e; font-weight: 600;
-  padding: 24px 24px 20px; border-bottom: 1px solid #3f4147;
+  font-size: 14px; color: rgb(var(--green-6)); font-weight: 600;
+  padding: 24px 24px 20px; border-bottom: 1px solid var(--color-border-2);
 }
 .vc-header-icon { font-size: 18px; }
 .vc-participants {
@@ -116,17 +116,17 @@ function getStream(uid: number): MediaStream | null {
 .vc-card {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   width: 150px; padding: 12px 8px; border-radius: 8px;
-  background: #2b2d31; gap: 6px; cursor: pointer; position: relative;
+  background: var(--color-bg-2); gap: 6px; cursor: pointer; position: relative;
   aspect-ratio: 1 / 1.59;
 }
-.vc-card:hover { background: #35373c; }
+.vc-card:hover { background: var(--color-bg-3); }
 .vc-latency {
   position: absolute; top: 4px; right: 6px;
-  font-size: 10px; color: #949ba4; font-family: monospace;
+  font-size: 10px; color: var(--color-text-3); font-family: monospace;
 }
 .vc-video-preview {
   width: 100%; height: 90px; border-radius: 6px; overflow: hidden;
-  margin-bottom: 4px; background: #1e1f22;
+  margin-bottom: 4px; background: var(--color-bg-3);
 }
 .vc-video-preview video {
   width: 100%; height: 100%; object-fit: cover;
@@ -137,14 +137,14 @@ function getStream(uid: number): MediaStream | null {
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; font-weight: 600; color: #fff;
 }
-.vc-avatar.speaking { box-shadow: 0 0 0 3px #22c55e; }
-.vc-name { font-size: 13px; color: #dbdee1; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.vc-avatar.speaking { box-shadow: 0 0 0 3px rgb(var(--green-6)); }
+.vc-name { font-size: 13px; color: var(--color-text-1); font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .vc-badges { display: flex; gap: 4px; }
 .vc-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; }
-.vc-badge.host { background: rgba(251,191,36,.2); color: #fbbf24; }
-.vc-status { font-size: 11px; color: #949ba4; display: flex; align-items: center; gap: 4px; }
+.vc-badge.host { background: rgba(var(--orange-6), 0.2); color: rgb(var(--orange-6)); }
+.vc-status { font-size: 11px; color: var(--color-text-3); display: flex; align-items: center; gap: 4px; }
 .vc-dot { width: 6px; height: 6px; border-radius: 50%; }
-.vc-quality { font-size: 11px; color: #fbbf24; }
+.vc-quality { font-size: 11px; color: rgb(var(--orange-6)); }
 
 .vc-focused {
   flex: 1; display: flex; align-items: center; justify-content: center;

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useThemeStore } from '@/stores/theme'
-import { onMounted } from 'vue'
+import { watch } from 'vue'
 
 const themeStore = useThemeStore()
 
-onMounted(() => {
-  document.body.setAttribute('arco-theme', themeStore.mode)
-})
+watch(() => themeStore.mode, (mode) => {
+  document.body.setAttribute('arco-theme', mode)
+}, { immediate: true })
 </script>
 
 <template>
