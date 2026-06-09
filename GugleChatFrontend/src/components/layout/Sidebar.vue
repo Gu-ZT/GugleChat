@@ -166,12 +166,13 @@ function handleLogout() {
         <div v-if="c.type === 'VOICE' && rtcStore.getVoiceUsers(c.id).length > 0" class="voice-users-list">
           <div v-for="u in rtcStore.getVoiceUsers(c.id)" :key="u.userId" class="voice-user-item">
             <span class="vu-dot" :class="{ 'vu-speaking': rtcStore.remoteSpeaking[u.userId] }"
-                  :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' : (rtcStore.remotePeers[u.userId]?.iceState || 'new')) }"/>
+                  :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' :
+                    (rtcStore.remotePeers[u.userId]?.iceState || rtcStore.peerConnStates[u.userId] || 'new')) }"/>
             <span class="vu-name">{{ u.username }}{{
                 u.userId === authStore.user?.id ? ' (you)' : ''
               }}{{ u.userId === rtcStore.hostId ? ' 👑' : '' }}</span>
-            <span v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[u.userId]" class="vu-state">
-              {{ connStateLabel(rtcStore.remotePeers[u.userId].iceState) }}
+            <span v-if="u.userId !== authStore.user?.id" class="vu-state">
+              {{ rtcStore.remotePeers[u.userId] ? connStateLabel(rtcStore.remotePeers[u.userId].iceState) : rtcStore.peerConnStates[u.userId] ? connStateLabel(rtcStore.peerConnStates[u.userId]) : 'Waiting...' }}
             </span>
             <span class="vu-quality">⭐{{ u.quality?.toFixed(1) || '?' }}</span>
           </div>
