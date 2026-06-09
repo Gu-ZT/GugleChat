@@ -915,7 +915,7 @@ export const useRtcStore = defineStore('rtc', () => {
             if (!audioCtx) return
             analyser.getByteFrequencyData(data)
             const avg = data.reduce((a, b) => a + b, 0) / data.length
-            speaking.value = avg > 30
+            speaking.value = avg > 15
             vadTimer = requestAnimationFrame(tick)
         }
         tick()
@@ -942,7 +942,7 @@ export const useRtcStore = defineStore('rtc', () => {
             if (!remoteVadAnalysers.has(userId)) return // stopped
             analyser.getByteFrequencyData(data)
             const avg = data.reduce((a, b) => a + b, 0) / data.length
-            const speaking = avg > 30
+            const speaking = avg > 15
             if (remoteSpeaking.value[userId] !== speaking) {
                 remoteSpeaking.value = { ...remoteSpeaking.value, [userId]: speaking }
             }
