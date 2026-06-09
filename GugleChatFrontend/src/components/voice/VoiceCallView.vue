@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRtcStore, connStateLabel, connStateColor } from '@/stores/rtc'
+import { useWebSocketStore } from '@/stores/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { IconVoice } from '@arco-design/web-vue/es/icon'
 
 const rtcStore = useRtcStore()
+const wsStore = useWebSocketStore()
 const authStore = useAuthStore()
 const focusedUserId = ref<number | null>(null)
 
@@ -49,6 +51,14 @@ function getStream(uid: number): MediaStream | null {
     <div v-if="focusedUserId === null" class="vc-participants">
       <div v-for="u in rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0)" :key="u.userId"
            class="vc-card" :class="{ 'has-video': hasVideo(u.userId) }" @dblclick="hasVideo(u.userId) && toggleFocus(u.userId)">
+        <div class="vc-latency">
+          <template v-if="u.userId === authStore.user?.id">
+            {{ wsStore.serverLatency >= 0 ? wsStore.serverLatency + 'ms' : '--' }}
+          </template>
+          <template v-else>
+            {{ rtcStore.remotePeers[u.userId]?.latency >= 0 ? rtcStore.remotePeers[u.userId].latency + 'ms' : '--' }}
+          </template>
+        </div>
         <!-- Self video/screen preview -->
         <div v-if="u.userId === authStore.user?.id && (rtcStore.videoEnabled || rtcStore.screenSharing) && rtcStore.localStream?.getVideoTracks().length"
              class="vc-video-preview">
@@ -103,6 +113,10 @@ function getStream(uid: number): MediaStream | null {
   aspect-ratio: 1 / 1.59;
 }
 .vc-card:hover { background: #35373c; }
+.vc-latency {
+  position: absolute; top: 4px; right: 6px;
+  font-size: 10px; color: #949ba4; font-family: monospace;
+}
 .vc-video-preview {
   width: 100%; height: 90px; border-radius: 6px; overflow: hidden;
   margin-bottom: 4px; background: #1e1f22;

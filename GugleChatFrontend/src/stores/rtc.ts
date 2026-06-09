@@ -11,6 +11,7 @@ export interface RemotePeer {
     iceState: RTCIceConnectionState
     connState: RTCPeerConnectionState
     quality: number
+    latency: number
 }
 
 export function connStateLabel(state: string): string {
@@ -113,7 +114,7 @@ export const useRtcStore = defineStore('rtc', () => {
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
         remotePeers.value = {...remotePeers.value, [userId]: {
             userId, username, stream: null, pc, iceBuffer: [], audioEl: null, quality: 0,
-            iceState: 'new', connState: 'new',
+            iceState: 'new', connState: 'new', latency: -1,
         }}
     }
 
@@ -190,6 +191,46 @@ export const useRtcStore = defineStore('rtc', () => {
                 peer.connState = pc.connectionState
                 remotePeers.value = {...remotePeers.value}
             }
+        }
+
+        // P2P latency measurement via data channel
+        const LATENCY_LABEL = 'gugle-ping'
+        let pingChannel: RTCDataChannel | null = null
+        let p2pTimer: ReturnType<typeof setInterval> | null = null
+
+        function startP2pPing() {
+          p2pTimer = setInterval(() => {
+            if (!pingChannel || pingChannel.readyState !== 'open') return
+            pingChannel.send(JSON.stringify({ type: 'ping', ts: performance.now() }))
+          }, 3000)
+        }
+
+        function setupChannel(ch: RTCDataChannel) {
+          pingChannel = ch
+          ch.onmessage = (e) => {
+            try {
+              const data = JSON.parse(e.data)
+              if (data.type === 'ping') {
+                ch.send(JSON.stringify({ type: 'pong', ts: data.ts }))
+              } else if (data.type === 'pong') {
+                const rtt = performance.now() - (data.ts as number)
+                const peer = remotePeers.value[targetId]
+                if (peer) { peer.latency = Math.round(rtt); remotePeers.value = {...remotePeers.value} }
+              }
+            } catch {}
+          }
+          ch.onopen = () => startP2pPing()
+          ch.onclose = () => { if (p2pTimer) { clearInterval(p2pTimer); p2pTimer = null } }
+          if (ch.readyState === 'open') startP2pPing()
+        }
+
+        // Offerer side: create data channel
+        const dc = pc.createDataChannel(LATENCY_LABEL, { negotiated: false, id: 42 })
+        setupChannel(dc)
+
+        // Answerer side: receive data channel
+        pc.ondatachannel = (event) => {
+          if (event.channel.label === LATENCY_LABEL) setupChannel(event.channel)
         }
 
         // Add local tracks directly (standard WebRTC approach)

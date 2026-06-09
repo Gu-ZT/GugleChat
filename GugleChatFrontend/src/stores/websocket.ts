@@ -11,6 +11,23 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const connected = ref(false)
   let client: Client | null = null
   let rtcHandler: RtcHandler | null = null
+  const serverLatency = ref(-1)
+  let pingTimer: ReturnType<typeof setInterval> | null = null
+
+  function startPing() {
+    stopPing()
+    pingTimer = setInterval(() => {
+      if (!client?.connected) return
+      client.publish({
+        destination: '/app/heartbeat',
+        body: JSON.stringify({ pingTs: Date.now() }),
+      })
+    }, 5000)
+  }
+
+  function stopPing() {
+    if (pingTimer) { clearInterval(pingTimer); pingTimer = null }
+  }
 
   function connect() {
     const token = localStorage.getItem('token')
@@ -24,6 +41,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       heartbeatOutgoing: 10000,
       onConnect: () => {
         connected.value = true
+        startPing()
         // Global voice users — no per-channel subscription needed
         client?.subscribe('/topic/voice-users', (msg) => {
           const body = JSON.parse(msg.body) as Record<string, unknown>
@@ -33,11 +51,18 @@ export const useWebSocketStore = defineStore('websocket', () => {
             if (body.hostId && rtc.activeRoomId === body.roomId) rtc.hostId = body.hostId as number
           }
         })
-        // Hearbeat
+        // Heartbeat — handle server ping and pong echo
         client?.subscribe('/topic/heartbeat', (msg) => {
           const body = JSON.parse(msg.body) as Record<string, unknown>
           if (body.type === 'ping') {
             client?.publish({ destination: '/app/heartbeat', body: '{}' })
+          }
+        })
+        // Pong response for RTT measurement
+        client?.subscribe('/user/queue/heartbeat', (msg) => {
+          const body = JSON.parse(msg.body) as Record<string, unknown>
+          if (body.type === 'pong' && body.pingTs) {
+            serverLatency.value = Date.now() - (body.pingTs as number)
           }
         })
         // RTC signaling
@@ -46,7 +71,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
           rtcHandler?.(body)
         })
       },
-      onDisconnect: () => { connected.value = false },
+      onDisconnect: () => { connected.value = false; stopPing() },
       onStompError: (frame) => console.error('[WS]', frame.headers['message']),
     })
     client.activate()
@@ -97,5 +122,5 @@ export const useWebSocketStore = defineStore('websocket', () => {
     client?.deactivate(); client = null; connected.value = false
   }
 
-  return { connected, connect, subscribeToChannel, sendMessage, disconnect, isConnected, onRtcMessage, sendSignaling }
+  return { connected, serverLatency, connect, subscribeToChannel, sendMessage, disconnect, isConnected, onRtcMessage, sendSignaling }
 })
