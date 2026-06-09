@@ -42,6 +42,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const videoEnabled = ref(false)
     const screenSharing = ref(false)
     const audioEnabled = ref(true)
+    const speakerEnabled = ref(true)
 
     interface VoiceUser {
         userId: number;
@@ -163,6 +164,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 audio.srcObject = stream
                 audio.autoplay = true
                 audio.controls = false
+                audio.muted = !speakerEnabled.value
                 audio.style.display = 'none'
                 document.body.appendChild(audio)
                 audio.play().catch(() => { /* autoplay policy — audio resumes on user interaction */ })
@@ -335,6 +337,13 @@ export const useRtcStore = defineStore('rtc', () => {
     function toggleAudio() {
         audioEnabled.value = !audioEnabled.value
         localStream.value?.getAudioTracks().forEach(t => t.enabled = audioEnabled.value)
+    }
+
+    function toggleSpeaker() {
+        speakerEnabled.value = !speakerEnabled.value
+        Object.values(remotePeers.value).forEach(p => {
+            if (p.audioEl) p.audioEl.muted = !speakerEnabled.value
+        })
     }
 
     async function toggleScreenShare() {
@@ -587,6 +596,7 @@ export const useRtcStore = defineStore('rtc', () => {
         hostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
+        speakerEnabled, toggleSpeaker,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn

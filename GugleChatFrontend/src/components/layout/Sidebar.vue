@@ -9,7 +9,6 @@ import {
   IconCloseCircle,
   IconDesktop,
   IconMessage,
-  IconMute,
   IconPlus,
   IconSettings,
   IconSound,
@@ -46,7 +45,7 @@ function onDragEnd() {
   dragging.value = false
 }
 
-onMounted(() => document.addEventListener('mousemove', onDrag))
+onMounted(() => { document.addEventListener('mousemove', onDrag); rtcStore.enumerateAudioDevices() })
 onMounted(() => document.addEventListener('mouseup', onDragEnd))
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDrag);
@@ -177,7 +176,7 @@ function handleLogout() {
       </template>
     </div>
 
-    <!-- Voice controls (above user panel) -->
+    <!-- Voice controls (only when in a call) -->
     <div v-if="rtcStore.activeRoomId" class="voice-controls-panel">
       <div class="vcp-left">
         <IconSound class="vcp-signal"/>
@@ -186,44 +185,18 @@ function handleLogout() {
       <div class="vcp-actions">
         <a-checkbox :model-value="rtcStore.monitoring"
                     @change="rtcStore.setMonitoring(!rtcStore.monitoring)" title="Hear yourself"/>
-        <a-popover trigger="hover" position="top">
-          <a-button type="text" size="mini"
-                    :status="!rtcStore.audioEnabled ? 'danger' : undefined"
-                    @click="rtcStore.toggleAudio">
-            <template #icon>
-              <IconSound v-if="rtcStore.audioEnabled"/>
-              <IconMute v-else/>
-            </template>
-          </a-button>
-          <template #content>
-            <div class="device-list">
-              <div class="device-title">Audio Input</div>
-              <div v-for="d in rtcStore.audioInputs" :key="d.deviceId"
-                   class="device-item"
-                   :class="{ active: d.deviceId === rtcStore.currentAudioDevice }"
-                   @click="rtcStore.switchAudioDevice(d.deviceId)">{{ d.label }}
-              </div>
-            </div>
-          </template>
-        </a-popover>
         <a-button type="text" size="mini"
                   :class="{ active: rtcStore.videoEnabled }"
                   @click="rtcStore.toggleVideo" title="Camera">
-          <template #icon>
-            <IconVideoCamera/>
-          </template>
+          <template #icon><IconVideoCamera/></template>
         </a-button>
         <a-button type="text" size="mini"
                   :class="{ active: rtcStore.screenSharing }"
                   @click="rtcStore.toggleScreenShare" title="Screen Share">
-          <template #icon>
-            <IconDesktop/>
-          </template>
+          <template #icon><IconDesktop/></template>
         </a-button>
         <a-button type="text" size="mini" status="danger" @click="rtcStore.endCall()">
-          <template #icon>
-            <IconCloseCircle/>
-          </template>
+          <template #icon><IconCloseCircle/></template>
         </a-button>
       </div>
     </div>
@@ -239,10 +212,30 @@ function handleLogout() {
         </div>
       </div>
       <div class="user-actions">
-        <a-button type="text" size="mini" @click="emit('openSettings')">
-          <template #icon>
-            <IconSettings/>
+        <a-popover trigger="hover" position="top">
+          <a-button type="text" size="mini"
+                    :class="{ 'mic-muted': !rtcStore.audioEnabled }"
+                    @click="rtcStore.toggleAudio" title="Mute / Unmute">
+            <template #icon><IconVoice/></template>
+          </a-button>
+          <template #content>
+            <div class="device-list">
+              <div class="device-title">Audio Input</div>
+              <div v-for="d in rtcStore.audioInputs" :key="d.deviceId"
+                   class="device-item"
+                   :class="{ active: d.deviceId === rtcStore.currentAudioDevice }"
+                   @click="rtcStore.switchAudioDevice(d.deviceId)">{{ d.label }}
+              </div>
+            </div>
           </template>
+        </a-popover>
+        <a-button type="text" size="mini"
+                  :class="{ 'mic-muted': !rtcStore.speakerEnabled }"
+                  @click="rtcStore.toggleSpeaker()" title="Mute Speaker">
+          <template #icon><IconSound/></template>
+        </a-button>
+        <a-button type="text" size="mini" @click="emit('openSettings')" title="Settings">
+          <template #icon><IconSettings/></template>
         </a-button>
       </div>
     </div>
@@ -643,4 +636,5 @@ function handleLogout() {
   color: var(--color-text-1);
   background: var(--color-bg-3);
 }
+.mic-muted, .mic-muted :deep(*) { color: rgb(var(--red-6)) !important; }
 </style>
