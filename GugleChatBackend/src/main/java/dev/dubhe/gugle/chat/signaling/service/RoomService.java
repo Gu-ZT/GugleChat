@@ -13,6 +13,7 @@ public class RoomService {
     private final Map<Long, Long> userRooms = new ConcurrentHashMap<>();
     private final Map<Long, String> userNames = new ConcurrentHashMap<>();
     private final Map<Long, Long> roomHosts = new ConcurrentHashMap<>();
+    private final Map<Long, Long> forcedHosts = new ConcurrentHashMap<>();
     private final Map<Long, Double> userQualities = new ConcurrentHashMap<>();
 
     public void setQuality(Long userId, double quality) {
@@ -57,7 +58,20 @@ public class RoomService {
     public record JoinResult(Set<Long> newRoomOthers, Long prevRoomId, Set<Long> prevRoomRemaining) {}
 
     public Long getHost(Long roomId) {
-        return roomHosts.get(roomId);
+        Long forced = forcedHosts.get(roomId);
+        return forced != null ? forced : roomHosts.get(roomId);
+    }
+
+    public Long getForcedHost(Long roomId) {
+        return forcedHosts.get(roomId);
+    }
+
+    public void setForceHost(Long roomId, Long userId) {
+        forcedHosts.put(roomId, userId);
+    }
+
+    public void clearForceHost(Long roomId) {
+        forcedHosts.remove(roomId);
     }
 
     public void setUsername(Long userId, String username) {
@@ -72,6 +86,7 @@ public class RoomService {
         Long roomId = userRooms.remove(userId);
         userQualities.remove(userId);
         if (roomId != null && rooms.containsKey(roomId)) {
+            forcedHosts.remove(roomId, userId); // clear if forced host leaves
             Set<Long> room = rooms.get(roomId);
             room.remove(userId);
             Set<Long> remaining = new HashSet<>(room);
@@ -86,6 +101,10 @@ public class RoomService {
             return remaining;
         }
         return Collections.emptySet();
+    }
+
+    public Long getUserRoom(Long userId) {
+        return userRooms.get(userId);
     }
 
     public Set<Long> getActiveRooms() {

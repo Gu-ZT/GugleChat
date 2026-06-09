@@ -77,11 +77,13 @@ public class SignalingHandler {
 
     private void broadcastVoiceUsers(Long roomId) {
         Long host = roomService.getHost(roomId);
+        Long forcedHost = roomService.getForcedHost(roomId);
         var users = roomService.getRoomUsers(roomId);
         var payload = Map.of("type", "voice-users",
                 "roomId", roomId,
                 "users", users,
-                "hostId", host != null ? host : 0L);
+                "hostId", host != null ? host : 0L,
+                "forcedHostId", forcedHost != null ? forcedHost : 0L);
         // Per-channel broadcast
         messagingTemplate.convertAndSend("/topic/channel." + roomId, payload);
         // Global broadcast — all clients receive without subscribing to each channel
@@ -113,5 +115,19 @@ public class SignalingHandler {
                 Map.of("type", "ice-candidate", "candidate", payload.get("candidate"),
                        "userId", Long.parseLong(principal.getName()),
                        "username", payload.getOrDefault("username", "")));
+    }
+
+    @MessageMapping("/rtc.force-host")
+    public void handleForceHost(@Payload Map<String, Object> payload, Principal principal) {
+        Long userId = Long.parseLong(principal.getName());
+        Long roomId = roomService.getUserRoom(userId);
+        if (roomId == null) return;
+        // Toggle: if already forced, clear it; otherwise set
+        if (userId.equals(roomService.getForcedHost(roomId))) {
+            roomService.clearForceHost(roomId);
+        } else {
+            roomService.setForceHost(roomId, userId);
+        }
+        broadcastVoiceUsers(roomId);
     }
 }

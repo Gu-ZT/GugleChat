@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconSound,
   IconThunderbolt,
+  IconTrophy,
   IconVideoCamera,
   IconVoice
 } from '@arco-design/web-vue/es/icon'
@@ -187,6 +188,11 @@ function handleLogout() {
         <span class="vcp-text">Voice Connected</span>
       </div>
       <div class="vcp-actions">
+        <a-button type="text" size="mini"
+                  :class="{ 'fx-active': rtcStore.forcedHostId === authStore.user?.id }"
+                  @click="wsStore.sendSignaling('rtc.force-host', {})" title="Force Host">
+          <template #icon><IconTrophy/></template>
+        </a-button>
         <a-button type="text" size="mini"
                   :class="{ active: rtcStore.videoEnabled }"
                   @click="rtcStore.toggleVideo" title="Camera">

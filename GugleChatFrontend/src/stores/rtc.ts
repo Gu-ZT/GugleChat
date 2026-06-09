@@ -67,6 +67,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const voiceUsersByChannel = ref<Record<number, VoiceUser[]>>({})
     const showVoiceChat = ref(false)
     const hostId = ref<number | null>(null)
+    const forcedHostId = ref<number>(0)
     watch(hostId, () => {
         relayLatencies.value = {}
         peerConnStates.value = {}
@@ -512,6 +513,7 @@ export const useRtcStore = defineStore('rtc', () => {
             sendSignaling('rtc.leave/' + activeRoomId.value, {})
         }
         activeRoomId.value = null
+        forcedHostId.value = 0
         videoEnabled.value = false
     }
 
@@ -943,7 +945,7 @@ export const useRtcStore = defineStore('rtc', () => {
     return {
         localStream, remotePeers, relayLatencies, peerConnStates, broadcastSpeaking, mutedPeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
-        hostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
+        hostId, forcedHostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         speakerEnabled, toggleSpeaker,

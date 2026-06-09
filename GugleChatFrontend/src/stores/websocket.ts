@@ -49,6 +49,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
             const rtc = useRtcStore()
             rtc.setVoiceUsers(body.roomId as number, (body.users as any[]) || [])
             if (body.hostId && rtc.activeRoomId === body.roomId) rtc.hostId = body.hostId as number
+            rtc.forcedHostId = (body.forcedHostId as number) || 0
           }
         })
         // Heartbeat — handle server ping and pong echo

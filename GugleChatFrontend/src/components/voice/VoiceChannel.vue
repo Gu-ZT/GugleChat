@@ -42,6 +42,7 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   const myId = authStore.user?.id || 0
   if (type === 'room-users') {
     if (body.hostId) rtcStore.hostId = body.hostId as number
+    rtcStore.forcedHostId = (body.forcedHostId as number) || 0
     const users = (body.users as { userId: number; username: string }[]) || []
     const host = body.hostId as number
     if (host === myId) {
@@ -154,6 +155,10 @@ async function handleIceCandidate(body: Record<string, unknown>) {
   } else {
     await peer.pc.addIceCandidate(new RTCIceCandidate(candidate))
   }
+}
+
+function forceHost() {
+  wsStore.sendSignaling('rtc.force-host', {})
 }
 
 onUnmounted(() => {
