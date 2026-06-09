@@ -68,10 +68,16 @@ export const useRtcStore = defineStore('rtc', () => {
     const showVoiceChat = ref(false)
     const hostId = ref<number | null>(null)
     const forcedHostId = ref<number>(0)
-    watch(hostId, () => {
+    watch(hostId, (newHost, oldHost) => {
         relayLatencies.value = {}
         peerConnStates.value = {}
         broadcastSpeaking.value = {}
+        // If I was the old host and no longer am, clean up my peer connections
+        const myId = useAuthStore().user?.id
+        if (oldHost === myId && newHost !== myId) {
+            Object.values(remotePeers.value).forEach(p => p.pc.close())
+            remotePeers.value = {}
+        }
     })
     const speaking = ref(false)
     const remoteSpeaking = ref<Record<number, boolean>>({})

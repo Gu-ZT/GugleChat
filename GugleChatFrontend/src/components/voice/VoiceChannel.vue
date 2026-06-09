@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted } from 'vue'
+import { onUnmounted, watch } from 'vue'
 import { useRtcStore } from '@/stores/rtc'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useAuthStore } from '@/stores/auth'
@@ -234,6 +234,12 @@ async function handleIceCandidate(body: Record<string, unknown>) {
 function forceHost() {
   wsStore.sendSignaling('rtc.force-host', {})
 }
+
+// Clean up mixer when no longer the host
+watch(() => rtcStore.hostId, (newHost) => {
+  const myId = authStore.user?.id
+  if (newHost !== myId) cleanupMixer()
+})
 
 onUnmounted(() => {
   cleanupMixer()
