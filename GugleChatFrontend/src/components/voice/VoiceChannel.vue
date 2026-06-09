@@ -23,9 +23,8 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
       for (const u of users) {
         await createOffer(u.userId, u.username)
       }
-    } else if (host && host !== myId) {
-      await createOffer(host, 'Host')
     }
+    // Non-host waits for host's offer (avoids glare)
   } else if (type === 'user-joined') {
     const uid = body.userId as number
     const uname = (body.username as string) || 'User' + uid
