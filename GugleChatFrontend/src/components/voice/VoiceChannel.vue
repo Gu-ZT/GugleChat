@@ -12,29 +12,85 @@ const authStore = useAuthStore()
 // Wire up RTC signaling
 rtcStore.setSendSignaling((dest: string, payload: Record<string, unknown>) => wsStore.sendSignaling(dest, payload))
 
-// Host audio mixer — shared across all peer connections
+// Per-peer audio mixer — each peer gets host mic + all OTHER remote audio (excludes own)
 let mixCtx: AudioContext | null = null
-let mixDest: MediaStreamAudioDestinationNode | null = null
-const mixSources = new Map<string, MediaStreamAudioSourceNode>()
+type MixEntry = { dest: MediaStreamAudioDestinationNode; sourceNodes: Set<AudioNode> }
+const peerMixes = new Map<number, MixEntry>()
+const trackSources = new Map<string, { node: AudioNode; sourceUid: number }>() // track.id -> source info
 
 function ensureMixer() {
   if (mixCtx) return
   mixCtx = new AudioContext()
-  mixDest = mixCtx.createMediaStreamDestination()
-  if (rtcStore.localStream) {
-    const hostSource = mixCtx.createMediaStreamSource(rtcStore.localStream)
-    hostSource.connect(mixDest!)
+  // Create/update per-peer destinations
+  const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
+  for (const uid of Object.keys(peers)) {
+    ensurePeerMix(Number(uid))
   }
 }
 
-function applyMixedTrackToAll() {
-  if (!mixDest) return
-  const mixedTrack = mixDest.stream.getAudioTracks()[0]
-  const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
-  for (const uid of Object.keys(peers)) {
-    const sender = peers[Number(uid)].pc.getSenders().find(s => s.track?.kind === 'audio')
-    if (sender) sender.replaceTrack(mixedTrack)
+function ensurePeerMix(uid: number) {
+  if (!mixCtx || peerMixes.has(uid)) return
+  const dest = mixCtx.createMediaStreamDestination()
+  const entry: MixEntry = { dest, sourceNodes: new Set() }
+  peerMixes.set(uid, entry)
+  // Connect host mic to this peer's mix
+  if (rtcStore.localStream) {
+    const hostSrc = mixCtx.createMediaStreamSource(rtcStore.localStream)
+    hostSrc.connect(dest)
+    entry.sourceNodes.add(hostSrc)
   }
+  // Connect all existing remote sources (except this peer's own)
+  for (const [trackId, info] of trackSources) {
+    if (info.sourceUid !== uid) {
+      const gain = mixCtx.createGain()
+      info.node.connect(gain).connect(dest)
+      entry.sourceNodes.add(gain)
+    }
+  }
+  // Apply this peer's mixed track to its PC
+  applyMixedTrack(uid)
+}
+
+function applyMixedTrack(uid: number) {
+  const entry = peerMixes.get(uid)
+  if (!entry) return
+  const mixedTrack = entry.dest.stream.getAudioTracks()[0]
+  const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
+  const sender = peers[uid]?.pc.getSenders().find(s => s.track?.kind === 'audio')
+  if (sender) sender.replaceTrack(mixedTrack)
+}
+
+function addRemoteSource(uid: number, track: MediaStreamTrack) {
+  if (!mixCtx || trackSources.has(track.id)) return
+  const source = mixCtx.createMediaStreamSource(new MediaStream([track]))
+  trackSources.set(track.id, { node: source, sourceUid: uid })
+  // Connect this source to all peer mixes EXCEPT the source owner
+  for (const [peerUid, entry] of peerMixes) {
+    if (peerUid === uid) continue
+    const gain = mixCtx.createGain()
+    source.connect(gain).connect(entry.dest)
+    entry.sourceNodes.add(gain)
+  }
+  track.onended = () => removeRemoteSource(track.id)
+}
+
+function removeRemoteSource(trackId: string) {
+  const info = trackSources.get(trackId)
+  if (!info) return
+  trackSources.delete(trackId)
+  // Disconnect from all peer mixes
+  for (const [, entry] of peerMixes) {
+    entry.sourceNodes.forEach(n => {
+      if (n.context === mixCtx) n.disconnect()
+    })
+  }
+}
+
+function removePeerMix(uid: number) {
+  const entry = peerMixes.get(uid)
+  if (!entry) return
+  entry.sourceNodes.forEach(n => n.disconnect())
+  peerMixes.delete(uid)
 }
 
 wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
@@ -60,7 +116,9 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
       await createOffer(uid, uname)
     }
   } else if (type === 'user-left') {
-    rtcStore.removeRemotePeer(body.userId as number)
+    const leftUid = body.userId as number
+    removePeerMix(leftUid)
+    rtcStore.removeRemotePeer(leftUid)
   } else if (type === 'offer') {
     await handleOffer(body)
   } else if (type === 'answer') {
@@ -74,23 +132,21 @@ async function createOffer(targetId: number, username: string) {
   const pc = rtcStore.createPeerConnection(targetId, username)
   ;(pc as any)._gugleInitPing?.()
   const myId = authStore.user?.id || 0
-  // Track event: add remote audio to shared mixer
+  // Track event: add remote audio to per-peer mixers
   pc.addEventListener('track', (event: RTCTrackEvent) => {
     if (rtcStore.hostId !== myId) return
     const stream = event.streams[0]
     if (!stream) return
+    ensureMixer()
+    ensurePeerMix(targetId) // ensure this peer has a mix
     for (const track of stream.getTracks()) {
-      if (mixSources.has(track.id)) continue
-      ensureMixer()
-      const source = mixCtx!.createMediaStreamSource(new MediaStream([track]))
-      source.connect(mixDest!)
-      mixSources.set(track.id, source)
-      track.onended = () => { source.disconnect(); mixSources.delete(track.id) }
+      addRemoteSource(targetId, track)
     }
-    applyMixedTrackToAll()
   })
-  // If mixer already active, apply to new PC immediately
-  if (mixCtx) applyMixedTrackToAll()
+  // If mixer already active, create mix for this new peer
+  if (mixCtx) {
+    ensurePeerMix(targetId)
+  }
   const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
   await pc.setLocalDescription(offer)
   const myName = authStore.user?.username || 'Me'
@@ -167,10 +223,10 @@ onUnmounted(() => {
 })
 
 function cleanupMixer() {
-  mixSources.forEach(s => s.disconnect())
-  mixSources.clear()
+  trackSources.clear()
+  peerMixes.forEach(entry => entry.sourceNodes.forEach(n => n.disconnect()))
+  peerMixes.clear()
   if (mixCtx) { mixCtx.close(); mixCtx = null }
-  mixDest = null
 }
 </script>
 
