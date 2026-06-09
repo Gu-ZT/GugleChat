@@ -23,23 +23,38 @@ public class RoomService {
         return userQualities.getOrDefault(userId, 0.0);
     }
 
-    public Set<Long> joinRoom(Long roomId, Long userId, double quality) {
+    public JoinResult joinRoom(Long roomId, Long userId, double quality) {
         userQualities.put(userId, quality);
-        Long prev = userRooms.remove(userId);
-        if (prev != null && rooms.containsKey(prev)) {
-            rooms.get(prev).remove(userId);
-            if (rooms.get(prev).isEmpty()) { rooms.remove(prev); roomHosts.remove(prev); }
+        // Remove from previous room if switching
+        Long prevRoomId = userRooms.remove(userId);
+        Set<Long> prevRemaining = Collections.emptySet();
+        if (prevRoomId != null && rooms.containsKey(prevRoomId)) {
+            rooms.get(prevRoomId).remove(userId);
+            if (rooms.get(prevRoomId).isEmpty()) {
+                rooms.remove(prevRoomId);
+                roomHosts.remove(prevRoomId);
+            } else {
+                prevRemaining = new HashSet<>(rooms.get(prevRoomId));
+                // If host left, pick new host
+                if (userId.equals(roomHosts.get(prevRoomId))) {
+                    Long best = prevRemaining.stream()
+                            .max(Comparator.comparingDouble(u -> userQualities.getOrDefault(u, 0.0)))
+                            .orElse(prevRemaining.iterator().next());
+                    roomHosts.put(prevRoomId, best);
+                }
+            }
         }
         rooms.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(userId);
         userRooms.put(userId, roomId);
-        // Pick best quality user as host
         if (!roomHosts.containsKey(roomId) || quality > userQualities.getOrDefault(roomHosts.get(roomId), 0.0)) {
             roomHosts.put(roomId, userId);
         }
         Set<Long> others = new HashSet<>(rooms.get(roomId));
         others.remove(userId);
-        return others;
+        return new JoinResult(others, prevRoomId, prevRemaining);
     }
+
+    public record JoinResult(Set<Long> newRoomOthers, Long prevRoomId, Set<Long> prevRoomRemaining) {}
 
     public Long getHost(Long roomId) {
         return roomHosts.get(roomId);

@@ -36,9 +36,19 @@ public class SignalingHandler {
                 ? accessor.getSessionAttributes().get("username") : null;
         String username = uname != null ? uname.toString() : "User" + userId;
         roomService.setUsername(userId, username);
-        Set<Long> others = roomService.joinRoom(roomId, userId, quality);
+        RoomService.JoinResult result = roomService.joinRoom(roomId, userId, quality);
 
-        for (Long otherId : others) {
+        // Notify old room that user left
+        if (result.prevRoomId() != null && !result.prevRoomRemaining().isEmpty()) {
+            for (Long otherId : result.prevRoomRemaining()) {
+                messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
+                        Map.of("type", "user-left", "userId", userId));
+            }
+            broadcastVoiceUsers(result.prevRoomId());
+        }
+
+        // Notify new room that user joined
+        for (Long otherId : result.newRoomOthers()) {
             messagingTemplate.convertAndSendToUser(otherId.toString(), "/queue/rtc",
                     Map.of("type", "user-joined", "userId", userId, "username", username,
                            "hostId", roomService.getHost(roomId)));
