@@ -5,6 +5,7 @@ import dev.dubhe.gugle.chat.channel.dto.*;
 import dev.dubhe.gugle.chat.channel.model.*;
 import dev.dubhe.gugle.chat.common.enums.MemberRole;
 import dev.dubhe.gugle.chat.common.exception.BusinessException;
+import dev.dubhe.gugle.chat.signaling.service.RoomService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +17,13 @@ public class ChannelService {
 
     private final ChannelMapper channelMapper;
     private final ChannelMemberMapper memberMapper;
+    private final RoomService roomService;
 
-    public ChannelService(ChannelMapper channelMapper, ChannelMemberMapper memberMapper) {
+    public ChannelService(ChannelMapper channelMapper, ChannelMemberMapper memberMapper,
+                          RoomService roomService) {
         this.channelMapper = channelMapper;
         this.memberMapper = memberMapper;
+        this.roomService = roomService;
     }
 
     public List<ChannelResponse> getAllChannels(Long userId) {
@@ -29,7 +33,10 @@ public class ChannelService {
                     long count = memberMapper.selectCount(
                             new LambdaQueryWrapper<ChannelMember>().eq(ChannelMember::getChannelId, c.getId()));
                     boolean joined = memberMapper.existsByChannelIdAndUserId(c.getId(), userId);
-                    return ChannelResponse.from(c, (int) count, joined);
+                    var voiceUsers = c.getType() == dev.dubhe.gugle.chat.common.enums.ChannelType.VOICE
+                            ? roomService.getRoomUsers(c.getId()) : null;
+                    Long hostId = roomService.getHost(c.getId());
+                    return ChannelResponse.from(c, (int) count, joined, voiceUsers, hostId);
                 })
                 .toList();
     }

@@ -67,10 +67,15 @@ public class SignalingHandler {
 
     private void broadcastVoiceUsers(Long roomId) {
         Long host = roomService.getHost(roomId);
-        messagingTemplate.convertAndSend("/topic/channel." + roomId,
-                Map.of("type", "voice-users",
-                       "users", roomService.getRoomUsers(roomId),
-                       "hostId", host != null ? host : 0L));
+        var users = roomService.getRoomUsers(roomId);
+        var payload = Map.of("type", "voice-users",
+                "roomId", roomId,
+                "users", users,
+                "hostId", host != null ? host : 0L);
+        // Per-channel broadcast
+        messagingTemplate.convertAndSend("/topic/channel." + roomId, payload);
+        // Global broadcast — all clients receive without subscribing to each channel
+        messagingTemplate.convertAndSend("/topic/voice-users", payload);
     }
 
     @MessageMapping("/rtc.offer")

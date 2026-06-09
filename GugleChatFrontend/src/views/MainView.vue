@@ -33,38 +33,15 @@ const showChat = computed(() =>
 onMounted(async () => {
   await authStore.fetchMe()
   await channelStore.fetchChannels()
+  // Populate voice users from channel list response (now includes voiceUsers)
+  for (const ch of channelStore.channels) {
+    if (ch.type === 'VOICE' && (ch as any).voiceUsers?.length) {
+      rtcStore.setVoiceUsers(ch.id, (ch as any).voiceUsers)
+      if ((ch as any).hostId) rtcStore.hostId = (ch as any).hostId
+    }
+  }
   wsStore.connect()
-  // Wait for WebSocket to connect, then subscribe and sync
-  await new Promise<void>(resolve => {
-    const check = () => {
-      if (wsStore.connected) {
-        for (const ch of channelStore.channels) {
-          wsStore.subscribeToChannel(ch.id)
-        }
-        syncVoiceUsers().then(resolve)
-      } else {
-        setTimeout(check, 200)
-      }
-    }
-    check()
-  })
 })
-
-async function syncVoiceUsers() {
-  try {
-    const res = await fetch('/api/channels/voice-users', {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    const body = await res.json()
-    if (body.code === 200 && body.data) {
-      const data = body.data as Record<string, { users: any[]; hostId: number }>
-      for (const roomId of Object.keys(data)) {
-        rtcStore.setVoiceUsers(Number(roomId), data[roomId].users)
-        if (data[roomId].hostId) rtcStore.hostId = data[roomId].hostId
-      }
-    }
-  } catch { /* ignore if backend not ready */ }
-}
 
 onUnmounted(() => wsStore.disconnect())
 </script>

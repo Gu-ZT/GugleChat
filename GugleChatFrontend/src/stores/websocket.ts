@@ -24,14 +24,23 @@ export const useWebSocketStore = defineStore('websocket', () => {
       heartbeatOutgoing: 10000,
       onConnect: () => {
         connected.value = true
-        // Subscribe to hearbeats and respond immediately
+        // Global voice users — no per-channel subscription needed
+        client?.subscribe('/topic/voice-users', (msg) => {
+          const body = JSON.parse(msg.body) as Record<string, unknown>
+          if (body.type === 'voice-users') {
+            const rtc = useRtcStore()
+            rtc.setVoiceUsers(body.roomId as number, (body.users as any[]) || [])
+            if (body.hostId && rtc.activeRoomId === body.roomId) rtc.hostId = body.hostId as number
+          }
+        })
+        // Hearbeat
         client?.subscribe('/topic/heartbeat', (msg) => {
           const body = JSON.parse(msg.body) as Record<string, unknown>
           if (body.type === 'ping') {
             client?.publish({ destination: '/app/heartbeat', body: '{}' })
           }
         })
-        // Subscribe to RTC signaling (user-specific queue)
+        // RTC signaling
         client?.subscribe('/user/queue/rtc', (msg) => {
           const body = JSON.parse(msg.body) as Record<string, unknown>
           rtcHandler?.(body)
