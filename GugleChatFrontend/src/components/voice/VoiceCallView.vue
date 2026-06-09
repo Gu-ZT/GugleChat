@@ -97,9 +97,10 @@ function getStream(uid: number): MediaStream | null {
   padding: 24px; align-content: flex-start;
 }
 .vc-card {
-  display: flex; flex-direction: column; align-items: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   width: 150px; padding: 12px 8px; border-radius: 8px;
   background: #2b2d31; gap: 6px; cursor: pointer; position: relative;
+  aspect-ratio: 1 / 1.59;
 }
 .vc-card:hover { background: #35373c; }
 .vc-video-preview {
