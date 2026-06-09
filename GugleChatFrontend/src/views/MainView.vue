@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useChannelStore } from '@/stores/channel'
 import { useRtcStore } from '@/stores/rtc'
@@ -8,11 +8,15 @@ import Sidebar from '@/components/layout/Sidebar.vue'
 import ChatArea from '@/components/chat/ChatArea.vue'
 import VoiceCallView from '@/components/voice/VoiceCallView.vue'
 import VoiceChannel from '@/components/voice/VoiceChannel.vue'
+import SettingsModal from '@/components/common/SettingsModal.vue'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const channelStore = useChannelStore()
 const rtcStore = useRtcStore()
 const wsStore = useWebSocketStore()
+const router = useRouter()
+const showSettings = ref(false)
 
 // Show VoiceCallView when in voice call and NOT viewing text chat
 const showVoiceView = computed(() =>
@@ -67,7 +71,7 @@ onUnmounted(() => wsStore.disconnect())
 
 <template>
   <div class="main-layout">
-    <Sidebar />
+    <Sidebar @open-settings="showSettings = true" />
     <main class="main-content">
       <VoiceCallView v-if="showVoiceView" />
       <ChatArea v-else-if="showChat" />
@@ -78,6 +82,7 @@ onUnmounted(() => wsStore.disconnect())
     </main>
     <!-- Hidden: handles RTC signaling -->
     <VoiceChannel v-show="false" />
+    <SettingsModal v-model:visible="showSettings" @logout="router.push('/login')" />
   </div>
 </template>
 

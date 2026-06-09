@@ -9,6 +9,7 @@ import { IconPlus, IconSound, IconVoice, IconMute, IconSettings, IconClose, Icon
 import type { ChannelType } from '@/types'
 
 const router = useRouter()
+const emit = defineEmits(['openSettings'])
 const authStore = useAuthStore()
 const channelStore = useChannelStore()
 const wsStore = useWebSocketStore()
@@ -174,7 +175,7 @@ function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push(
         </div>
       </div>
       <div class="user-actions">
-        <a-button type="text" size="mini" @click="router.push('/settings')">
+        <a-button type="text" size="mini" @click="emit('openSettings')">
           <template #icon><IconSettings /></template>
         </a-button>
       </div>
