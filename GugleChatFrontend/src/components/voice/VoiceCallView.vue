@@ -80,7 +80,7 @@ function getStream(uid: number): MediaStream | null {
         <!-- Self video/screen preview -->
         <div v-if="u.userId === authStore.user?.id && (rtcStore.videoEnabled || rtcStore.screenSharing) && rtcStore.localStream?.getVideoTracks().length"
              class="vc-video-preview">
-          <video autoplay muted playsinline :srcObject="rtcStore.localStream" :class="{ mirrored: !rtcStore.screenSharing }" />
+          <video autoplay muted playsinline :key="'local-' + rtcStore.screenShareVersion" :srcObject="rtcStore.localStream" :class="{ mirrored: !rtcStore.screenSharing }" />
         </div>
         <!-- Forwarded video (from host relay) -->
         <div v-if="u.userId !== authStore.user?.id && rtcStore.remotePeers[rtcStore.hostId || 0]?.forwardedVideos?.has(u.userId)"

@@ -49,6 +49,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const activeRoomId = ref<number | null>(null)
     const videoEnabled = ref(false)
     const screenSharing = ref(false)
+    const screenShareVersion = ref(0)
     const audioEnabled = ref(true)
     const speakerEnabled = ref(true)
     const echoCancellation = ref(localStorage.getItem('guglechat_echo_cancel') !== 'false')
@@ -318,10 +319,16 @@ export const useRtcStore = defineStore('rtc', () => {
                     pendingFwdUsers.delete(streamId)
                     return
                 }
-                // Track arrived first: store for later pairing
+                // Track arrived first: store for later pairing with video-fwd message
                 pendingFwdStreams.set(streamId, stream)
-                // Still set as main stream (it may be the sender's own video)
-                setRemoteStream(targetId, stream)
+                // Fallback: if no video-fwd arrives within 2s, treat as sender's own video
+                setTimeout(() => {
+                    if (pendingFwdStreams.has(streamId)) {
+                        pendingFwdStreams.delete(streamId)
+                        setRemoteStream(targetId, stream)
+                        console.log(`[RTC] video track from ${username} not paired — treating as direct`)
+                    }
+                }, 2000)
                 return
             }
 
@@ -818,18 +825,26 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         // Screen share and video are mutually exclusive
         if (videoEnabled.value) {
-            localStream.value?.getVideoTracks().forEach(t => t.stop())
+            localStream.value?.getVideoTracks().forEach(t => {
+                t.stop()
+                localStream.value?.removeTrack(t)
+            })
             videoEnabled.value = false
         }
         try {
             const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
             screenSharing.value = true
+            screenShareVersion.value++
             // Keep audio from existing stream, replace video with screen
             const screenTrack = screenStream.getVideoTracks()[0]
             if (!screenTrack) return
             // Add screen track to local stream (create one if needed)
             if (localStream.value) {
-                localStream.value.getVideoTracks().forEach(t => t.stop())
+                // Remove any old video tracks before adding new one
+                localStream.value.getVideoTracks().forEach(t => {
+                    t.stop()
+                    localStream.value!.removeTrack(t)
+                })
                 localStream.value.addTrack(screenTrack)
             } else {
                 localStream.value = screenStream
@@ -847,7 +862,12 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function stopScreenShare() {
         screenSharing.value = false
-        localStream.value?.getVideoTracks().forEach(t => t.stop())
+        screenShareVersion.value++
+        // Stop and remove old video tracks from local stream
+        localStream.value?.getVideoTracks().forEach(t => {
+            t.stop()
+            localStream.value?.removeTrack(t)
+        })
         // Remove video track from all senders
         for (const peer of Object.values(remotePeers.value)) {
             const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
@@ -1078,7 +1098,7 @@ export const useRtcStore = defineStore('rtc', () => {
     return {
         localStream, remotePeers, relayLatencies, peerConnStates, broadcastSpeaking, mutedPeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, clearAllPeers, createPeerConnection,
-        hostId, forcedHostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
+        hostId, forcedHostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing, screenShareVersion,
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         speakerEnabled, toggleSpeaker,
