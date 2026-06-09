@@ -607,8 +607,9 @@ export const useRtcStore = defineStore('rtc', () => {
                 if (e.message && !e.message.includes('already')) throw e
             }
             const src = audioCtx.createMediaStreamSource(localStream.value)
-            rnnoiseNode = new AudioWorkletNode(audioCtx, NoiseSuppressorWorklet_Name)
+            rnnoiseNode = new AudioWorkletNode(audioCtx, NoiseSuppressorWorklet_Name, { channelCount: 1, numberOfOutputs: 1 })
             rnnoiseDest = audioCtx.createMediaStreamDestination()
+            rnnoiseDest.channelCount = 1
             src.connect(rnnoiseNode).connect(rnnoiseDest)
 
             // Replace outgoing audio track with RNNoise-processed track
