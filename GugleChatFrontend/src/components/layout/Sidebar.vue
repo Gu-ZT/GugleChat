@@ -165,7 +165,7 @@ function handleLogout() {
         <!-- Connected voice users -->
         <div v-if="c.type === 'VOICE' && rtcStore.getVoiceUsers(c.id).length > 0" class="voice-users-list">
           <div v-for="u in rtcStore.getVoiceUsers(c.id)" :key="u.userId" class="voice-user-item">
-            <span class="vu-dot" :class="{ 'vu-speaking': rtcStore.remoteSpeaking[u.userId] }"
+            <span class="vu-dot" :class="{ 'vu-speaking': rtcStore.remoteSpeaking[u.userId] || rtcStore.broadcastSpeaking[u.userId] }"
                   :style="{ background: connStateColor(u.userId === authStore.user?.id ? 'completed' :
                     (rtcStore.remotePeers[u.userId]?.iceState || rtcStore.peerConnStates[u.userId] || 'new')) }"/>
             <span class="vu-name">{{ u.username }}{{

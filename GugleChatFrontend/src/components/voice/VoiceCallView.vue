@@ -28,6 +28,10 @@ function latencyColor(ms: number): string {
   if (ms <= 250) return 'rgb(var(--orange-6))'
   return 'rgb(var(--red-6))'
 }
+function isSpeaking(uid: number): boolean {
+  if (uid === authStore.user?.id) return rtcStore.speaking
+  return rtcStore.remoteSpeaking[uid] || rtcStore.broadcastSpeaking[uid] || false
+}
 function peerLatency(uid: number): number {
   const direct = rtcStore.remotePeers[uid]?.latency
   if (direct !== undefined && direct >= 0) return direct
@@ -84,7 +88,7 @@ function getStream(uid: number): MediaStream | null {
           <video autoplay playsinline :srcObject="rtcStore.remotePeers[u.userId].stream" />
         </div>
         <div v-else class="vc-avatar"
-             :class="{ speaking: u.userId === authStore.user?.id ? rtcStore.speaking : rtcStore.remoteSpeaking[u.userId] }"
+             :class="{ speaking: isSpeaking(u.userId) }"
              :style="{ background: avatarColor(u.userId) }">
           {{ u.username?.charAt(0).toUpperCase() }}
         </div>
