@@ -302,24 +302,19 @@ fun MessageBubble(msg: Message) {
                     },
                     update = { tv -> markwon.setMarkdown(tv, msg.content) },
                     modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
-}
+                ) // end AndroidView
+            } // end Column (inner)
+        } // end Row (outer)
+    } // end Column (padding)
+} // end MessageBubble
 
 @Composable
-fun VoiceScreen(
-    channels: List<Channel>,
-    onLeave: () -> Unit,
-    onSelectChannel: (Channel) -> Unit,
-) {
-    val voiceChannel = channels.find { it.type == "VOICE" }
+fun VoiceScreen(channels: List<Channel>, onLeave: () -> Unit, onSelectChannel: (Channel) -> Unit) {
     Column(Modifier.fillMaxSize().background(DiscordBg)) {
         // Header
         Surface(Modifier.fillMaxWidth(), color = DiscordBg) {
             Row(Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { onSelectChannel(voiceChannel ?: channels.first()) }) {
+                IconButton(onClick = { onSelectChannel(channels.firstOrNull() ?: return@IconButton) }) {
                     Text("☰", color = DiscordText, fontSize = 20.sp)
                 }
                 Spacer(Modifier.width(8.dp))
@@ -327,43 +322,20 @@ fun VoiceScreen(
             }
         }
         HorizontalDivider(color = DiscordDivider)
-
-        // Participants area
+        // Participants
         LazyColumn(Modifier.weight(1f).padding(24.dp)) {
-            item {
-                Text("PARTICIPANTS", color = DiscordMuted, fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-            }
-            // Self
-            item {
-                ParticipantCard("You", "#5865F2", true)
-            }
-            // Connected peers (placeholder — real data from WebRTC)
+            item { Text("PARTICIPANTS", color = DiscordMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            item { ParticipantCard("You", "#5865F2", false) }
         }
-    }
-
-    // Bottom controls
-    Surface(Modifier.fillMaxWidth(), color = Color(0xFF232428)) {
-        Row(Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically) {
-            // Mute
-            IconButton(onClick = {}) {
-                Text("🎤", fontSize = 24.sp)
-            }
-            // Video (disabled on mobile for now)
-            IconButton(onClick = {}) {
-                Text("📹", fontSize = 24.sp, color = DiscordMuted)
-            }
-            // Screen Share
-            IconButton(onClick = {}) {
-                Text("🖥", fontSize = 24.sp, color = DiscordMuted)
-            }
-            // Leave
-            IconButton(onClick = onLeave) {
-                Surface(Modifier.size(48.dp), shape = MaterialTheme.shapes.extraLarge,
-                    color = Color(0xFFED4245)) {
-                    Box(contentAlignment = Alignment.Center) { Text("✕", color = Color.White, fontSize = 20.sp) }
+        // Bottom controls
+        Surface(Modifier.fillMaxWidth(), color = Color(0xFF232428)) {
+            Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                IconButton(onClick = {}) { Text("🎤", fontSize = 24.sp) }
+                IconButton(onClick = {}) { Text("📹", fontSize = 24.sp, color = DiscordMuted) }
+                IconButton(onClick = onLeave) {
+                    Surface(Modifier.size(48.dp), shape = MaterialTheme.shapes.extraLarge, color = Color(0xFFED4245)) {
+                        Box(contentAlignment = Alignment.Center) { Text("✕", color = Color.White, fontSize = 20.sp) }
+                    }
                 }
             }
         }
