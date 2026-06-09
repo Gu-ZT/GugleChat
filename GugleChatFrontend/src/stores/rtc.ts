@@ -15,6 +15,8 @@ export interface RemotePeer {
     quality: number
     latency: number
     pingChannel: RTCDataChannel | null
+    /** Forwarded video streams from other peers (via host relay), keyed by original sender userId */
+    forwardedVideos: Map<number, MediaStream>
 }
 
 export function connStateLabel(state: string): string {
@@ -95,6 +97,12 @@ export const useRtcStore = defineStore('rtc', () => {
     let micProcessedTrack: MediaStreamTrack | null = null
     let rnnoiseNode: AudioWorkletNode | null = null
     let rnnoiseDest: MediaStreamAudioDestinationNode | null = null
+    // Shared AudioContext for remote VAD (avoids per-peer AudioContext limit)
+    let remoteVadCtx: AudioContext | null = null
+    const remoteVadAnalysers = new Map<number, { analyser: AnalyserNode, source: MediaStreamAudioSourceNode }>()
+    // Video forwarding: streamId-based mapping (handles out-of-order track vs DataChannel arrival)
+    const pendingFwdStreams = new Map<string, MediaStream>()   // streamId → stream (track arrived first)
+    const pendingFwdUsers = new Map<string, number>()          // streamId → fromUserId (msg arrived first)
 
     function setMicVolume(v: number) {
         micVolume.value = v
@@ -222,6 +230,7 @@ export const useRtcStore = defineStore('rtc', () => {
         remotePeers.value = {...remotePeers.value, [userId]: {
             userId, username, stream: null, pc, iceBuffer: [], audioEl: null, quality: 0,
             iceState: 'new', connState: 'new', latency: -1, pingChannel: null,
+            forwardedVideos: new Map(),
         }}
     }
 
@@ -248,6 +257,43 @@ export const useRtcStore = defineStore('rtc', () => {
         const rl = {...relayLatencies.value}; delete rl[userId]; relayLatencies.value = rl
     }
 
+    function clearAllPeers() {
+        Object.values(remotePeers.value).forEach(p => {
+            stopRemoteVad(p.userId)
+            p.audioEl?.pause()
+            p.audioEl?.remove()
+            p.audioEl = null
+            p.pc.close()
+        })
+        remotePeers.value = {}
+        relayLatencies.value = {}
+        broadcastSpeaking.value = {}
+        peerConnStates.value = {}
+    }
+
+    function setForwardedVideo(senderId: number, fromUserId: number, stream: MediaStream) {
+        const peer = remotePeers.value[senderId]
+        if (!peer) return
+        const updated = new Map(peer.forwardedVideos)
+        updated.set(fromUserId, stream)
+        peer.forwardedVideos = updated
+        remotePeers.value = {...remotePeers.value}
+        // Auto-cleanup when the forwarding track ends
+        const videoTrack = stream.getVideoTracks()[0]
+        if (videoTrack) {
+            videoTrack.onended = () => removeForwardedVideo(senderId, fromUserId)
+        }
+    }
+
+    function removeForwardedVideo(senderId: number, fromUserId: number) {
+        const peer = remotePeers.value[senderId]
+        if (!peer || !peer.forwardedVideos.has(fromUserId)) return
+        const updated = new Map(peer.forwardedVideos)
+        updated.delete(fromUserId)
+        peer.forwardedVideos = updated
+        remotePeers.value = {...remotePeers.value}
+    }
+
     function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
         const pc = Object.assign(new RTCPeerConnection({iceServers: getIceServers()}), {_gugleInitPing: undefined as any})
         addRemotePeer(targetId, username, pc)
@@ -259,8 +305,28 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         pc.ontrack = (event) => {
             console.log(`[RTC] ontrack from ${username}:`, event.track.kind)
-            setRemoteStream(targetId, event.streams[0])
             const stream = event.streams[0]
+            if (!stream) return
+
+            // Check if this is a forwarded video track (has streamId-based mapping)
+            if (event.track.kind === 'video' && stream) {
+                const streamId = stream.id
+                const pendingUser = pendingFwdUsers.get(streamId)
+                if (pendingUser) {
+                    // DataChannel message arrived first: pair up now
+                    setForwardedVideo(targetId, pendingUser, stream)
+                    pendingFwdUsers.delete(streamId)
+                    return
+                }
+                // Track arrived first: store for later pairing
+                pendingFwdStreams.set(streamId, stream)
+                // Still set as main stream (it may be the sender's own video)
+                setRemoteStream(targetId, stream)
+                return
+            }
+
+            // Audio track or sender's own video: standard handling
+            setRemoteStream(targetId, stream)
             if (stream) {
                 const peer = remotePeers.value[targetId]
                 if (peer) {
@@ -341,11 +407,11 @@ export const useRtcStore = defineStore('rtc', () => {
             }
           }
           // Add speaking & muted states
-          const speaking: Record<number, boolean> = {}
+          const localSpeaking: Record<number, boolean> = {}
           for (const [uid, v] of Object.entries(remoteSpeaking.value)) {
-            speaking[Number(uid)] = v
+            localSpeaking[Number(uid)] = v
           }
-          speaking[myId] = speaking.value
+          localSpeaking[myId] = speaking.value
           const muted: Record<number, boolean> = {}
           for (const [uid, v] of Object.entries(mutedPeers.value)) {
             muted[Number(uid)] = v
@@ -354,7 +420,7 @@ export const useRtcStore = defineStore('rtc', () => {
           // Broadcast to all connected peers
           for (const p of Object.values(remotePeers.value)) {
             if (p.pingChannel && p.pingChannel.readyState === 'open') {
-              p.pingChannel.send(JSON.stringify({ type: 'peer-states', states, speaking, muted }))
+              p.pingChannel.send(JSON.stringify({ type: 'peer-states', states, speaking: localSpeaking, muted }))
             }
           }
         }
@@ -419,6 +485,23 @@ export const useRtcStore = defineStore('rtc', () => {
                     tp.pingChannel.send(JSON.stringify({ type: 'relay-pong', from: data.from, target: data.target, ts: data.ts }))
                   }
                 }
+              } else if (data.type === 'video-fwd') {
+                // Host is forwarding a video track: map streamId → fromUserId
+                const streamId = data.streamId as string
+                const fromUserId = data.fromUserId as number
+                const pending = pendingFwdStreams.get(streamId)
+                if (pending) {
+                  // ontrack already fired: pair up now
+                  setForwardedVideo(targetId, fromUserId, pending)
+                  pendingFwdStreams.delete(streamId)
+                } else {
+                  // ontrack hasn't fired yet: store for later
+                  pendingFwdUsers.set(streamId, fromUserId)
+                }
+              } else if (data.type === 'video-fwd-end') {
+                // Host stopped forwarding a video
+                const fromUserId = data.fromUserId as number
+                removeForwardedVideo(targetId, fromUserId)
               }
             } catch {}
           }
@@ -523,28 +606,53 @@ export const useRtcStore = defineStore('rtc', () => {
         videoEnabled.value = false
     }
 
+    function setVideoBitrate(sender: RTCRtpSender, maxKbps: number) {
+        const params = sender.getParameters()
+        if (params.encodings?.length) {
+            params.encodings[0].maxBitrate = maxKbps * 1000
+            sender.setParameters(params).catch(() => {})
+        }
+    }
+
     async function toggleVideo() {
         if (videoEnabled.value) {
-            localStream.value?.getVideoTracks().forEach(t => t.stop())
+            // Close: stop video tracks, remove from local stream & all senders
+            localStream.value?.getVideoTracks().forEach(t => {
+                t.stop()
+                localStream.value?.removeTrack(t)
+            })
+            Object.values(remotePeers.value).forEach(peer => {
+                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+                if (sender) sender.replaceTrack(null)
+            })
             videoEnabled.value = false
             return
         }
         // Video and screen share mutually exclusive
         if (screenSharing.value) stopScreenShare()
-        if (!localStream.value) return
         try {
-            const newStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true})
-            localStream.value.getTracks().forEach(t => t.stop())
-            localStream.value = newStream
-            videoEnabled.value = true
-            const videoTrack = newStream.getVideoTracks()[0]
-            if (videoTrack) {
-                Object.values(remotePeers.value).forEach(peer => {
-                    const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-                    if (sender) sender.replaceTrack(videoTrack)
-                    else peer.pc.addTrack(videoTrack, newStream)
+            // Get video-only stream — never touch audio track
+            const videoStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false})
+            const videoTrack = videoStream.getVideoTracks()[0]
+            if (!videoTrack) return
+            // Attach video track to existing local stream (or create one)
+            if (!localStream.value) {
+                localStream.value = videoStream
+            } else {
+                // Stop any old video tracks before replacing
+                localStream.value.getVideoTracks().forEach(t => {
+                    t.stop()
+                    localStream.value!.removeTrack(t)
                 })
+                localStream.value.addTrack(videoTrack)
             }
+            videoEnabled.value = true
+            // Replace/add video sender on all peer connections
+            Object.values(remotePeers.value).forEach(peer => {
+                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
+                if (sender) { sender.replaceTrack(videoTrack); setVideoBitrate(sender, 1500) }
+                else { const s = peer.pc.addTrack(videoTrack, localStream.value!); setVideoBitrate(s, 1500) }
+            })
         } catch { /* camera denied */ }
     }
 
@@ -729,8 +837,8 @@ export const useRtcStore = defineStore('rtc', () => {
             // Replace video track on all peer connections
             for (const peer of Object.values(remotePeers.value)) {
                 const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-                if (sender) sender.replaceTrack(screenTrack)
-                else peer.pc.addTrack(screenTrack, localStream.value!)
+                if (sender) { sender.replaceTrack(screenTrack); setVideoBitrate(sender, 4000) }
+                else { const s = peer.pc.addTrack(screenTrack, localStream.value!); setVideoBitrate(s, 4000) }
             }
             // Stop sharing when user clicks browser's "Stop sharing" button
             screenTrack.onended = () => stopScreenShare()
@@ -818,12 +926,20 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function startRemoteVad(userId: number, stream: MediaStream) {
         stopRemoteVad(userId)
-        const ctx = new AudioContext()
+        // Lazy-init shared AudioContext for all remote VAD
+        if (!remoteVadCtx) {
+            remoteVadCtx = new AudioContext()
+        }
+        const ctx = remoteVadCtx!
+        if (ctx.state === 'suspended') ctx.resume()
         const analyser = ctx.createAnalyser()
         analyser.fftSize = 256
-        ctx.createMediaStreamSource(stream).connect(analyser)
+        const source = ctx.createMediaStreamSource(stream)
+        source.connect(analyser)
+        remoteVadAnalysers.set(userId, { analyser, source })
         const data = new Uint8Array(analyser.frequencyBinCount)
         const tick = () => {
+            if (!remoteVadAnalysers.has(userId)) return // stopped
             analyser.getByteFrequencyData(data)
             const avg = data.reduce((a, b) => a + b, 0) / data.length
             const speaking = avg > 30
@@ -837,8 +953,19 @@ export const useRtcStore = defineStore('rtc', () => {
 
     function stopRemoteVad(userId: number) {
         if (remoteVadTimers[userId]) { cancelAnimationFrame(remoteVadTimers[userId]); delete remoteVadTimers[userId] }
+        const entry = remoteVadAnalysers.get(userId)
+        if (entry) {
+            entry.source.disconnect()
+            entry.analyser.disconnect()
+            remoteVadAnalysers.delete(userId)
+        }
         if (remoteSpeaking.value[userId]) {
             remoteSpeaking.value = { ...remoteSpeaking.value, [userId]: false }
+        }
+        // Close shared AudioContext when no more remote VADs are active
+        if (remoteVadAnalysers.size === 0 && remoteVadCtx) {
+            remoteVadCtx.close()
+            remoteVadCtx = null
         }
     }
 
@@ -950,7 +1077,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     return {
         localStream, remotePeers, relayLatencies, peerConnStates, broadcastSpeaking, mutedPeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
-        addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
+        addRemotePeer, setRemoteStream, removeRemotePeer, clearAllPeers, createPeerConnection,
         hostId, forcedHostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,

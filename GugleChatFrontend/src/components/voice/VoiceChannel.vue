@@ -18,6 +18,10 @@ type MixEntry = { dest: MediaStreamAudioDestinationNode; sourceNodes: Set<AudioN
 const peerMixes = new Map<number, MixEntry>()
 const trackSources = new Map<string, { node: AudioNode; sourceUid: number }>() // track.id -> source info
 
+// Video forwarding: host relays video from one peer to all others
+// Key: "fromUserId→toUserId", Value: { sender, track }
+const videoForwardSenders = new Map<string, { sender: RTCRtpSender; track: MediaStreamTrack }>()
+
 function ensureMixer() {
   if (mixCtx) return
   mixCtx = new AudioContext()
@@ -150,15 +154,20 @@ async function createOffer(targetId: number, username: string) {
       applyMixedTrack(targetId)
     }
   })
-  // Track event: add remote audio to per-peer mixers
-  pc.addEventListener('track', (event: RTCTrackEvent) => {
+  // Track event: mix remote audio, forward remote video
+  pc.addEventListener('track', async (event: RTCTrackEvent) => {
     if (rtcStore.hostId !== myId) return
     const stream = event.streams[0]
     if (!stream) return
     ensureMixer()
     ensurePeerMix(targetId)
     for (const track of stream.getTracks()) {
-      addRemoteSource(targetId, track)
+      if (track.kind === 'audio') {
+        addRemoteSource(targetId, track)
+      } else if (track.kind === 'video') {
+        // Forward this video to all other peers
+        await forwardVideoToOthers(targetId, track)
+      }
     }
   })
   // If mixer already active, create mix for this new peer
@@ -169,6 +178,56 @@ async function createOffer(targetId: number, username: string) {
   await pc.setLocalDescription(offer)
   const myName = authStore.user?.username || 'Me'
   wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: myName })
+}
+
+/** Host: forward a video track from one peer to all other peers */
+async function forwardVideoToOthers(fromUserId: number, videoTrack: MediaStreamTrack) {
+  const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection; pingChannel: RTCDataChannel | null }>
+  for (const [targetIdStr, peer] of Object.entries(peers)) {
+    const targetId = Number(targetIdStr)
+    if (targetId === fromUserId) continue // Don't send back to source
+    const key = `${fromUserId}→${targetId}`
+    const existing = videoForwardSenders.get(key)
+    const fwdStream = new MediaStream([videoTrack])
+
+    if (existing) {
+      existing.sender.replaceTrack(videoTrack)
+      // Update stream for new id mapping
+    } else {
+      const sender = peer.pc.addTrack(videoTrack, fwdStream)
+      videoForwardSenders.set(key, { sender, track: videoTrack })
+    }
+
+    // Renegotiate this peer's PC
+    try {
+      const offer = await peer.pc.createOffer()
+      await peer.pc.setLocalDescription(offer)
+      wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
+    } catch (e: any) {
+      if (e.name !== 'InvalidStateError') console.warn('[fwd] renegotiation failed:', e.message)
+    }
+
+    // Send streamId-based mapping via ping channel (handles out-of-order arrival)
+    if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
+      peer.pingChannel.send(JSON.stringify({
+        type: 'video-fwd',
+        fromUserId,
+        streamId: fwdStream.id,
+      }))
+    }
+
+    // Cleanup when source track ends
+    videoTrack.addEventListener('ended', () => {
+      const s = videoForwardSenders.get(key)
+      if (s) {
+        s.sender.replaceTrack(null)
+        videoForwardSenders.delete(key)
+        if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
+          peer.pingChannel.send(JSON.stringify({ type: 'video-fwd-end', fromUserId }))
+        }
+      }
+    }, { once: true })
+  }
 }
 
 async function handleOffer(body: Record<string, unknown>) {
@@ -235,10 +294,25 @@ function forceHost() {
   wsStore.sendSignaling('rtc.force-host', {})
 }
 
-// Clean up mixer when no longer the host
-watch(() => rtcStore.hostId, (newHost) => {
+// Handle host migration: recreate connections when becoming host, cleanup when losing host
+watch(() => rtcStore.hostId, async (newHost) => {
   const myId = authStore.user?.id
-  if (newHost !== myId) cleanupMixer()
+  if (newHost === myId) {
+    // I became the new host — close stale peer connections and create offers to everyone
+    rtcStore.clearAllPeers()
+    cleanupMixer()
+    const roomId = rtcStore.activeRoomId
+    if (roomId) {
+      const users = rtcStore.getVoiceUsers(roomId)
+      for (const u of users) {
+        if (u.userId !== myId) {
+          await createOffer(u.userId, u.username)
+        }
+      }
+    }
+  } else if (newHost !== myId) {
+    cleanupMixer()
+  }
 })
 
 onUnmounted(() => {
@@ -247,6 +321,9 @@ onUnmounted(() => {
 })
 
 function cleanupMixer() {
+  // Clean up video forwarders
+  videoForwardSenders.forEach(s => s.sender.replaceTrack(null))
+  videoForwardSenders.clear()
   trackSources.clear()
   peerMixes.forEach(entry => entry.sourceNodes.forEach(n => n.disconnect()))
   peerMixes.clear()
