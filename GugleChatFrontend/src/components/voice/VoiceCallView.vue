@@ -28,6 +28,13 @@ function latencyColor(ms: number): string {
   if (ms <= 250) return 'rgb(var(--orange-6))'
   return 'rgb(var(--red-6))'
 }
+function peerLatency(uid: number): number {
+  const direct = rtcStore.remotePeers[uid]?.latency
+  if (direct !== undefined && direct >= 0) return direct
+  const relay = rtcStore.relayLatencies[uid]
+  if (relay !== undefined && relay >= 0) return relay
+  return -1
+}
 function getStream(uid: number): MediaStream | null {
   if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) ? rtcStore.localStream : null
   const s = rtcStore.remotePeers[uid]?.stream
@@ -58,12 +65,12 @@ function getStream(uid: number): MediaStream | null {
       <div v-for="u in rtcStore.getVoiceUsers(rtcStore.activeRoomId || 0)" :key="u.userId"
            class="vc-card" :class="{ 'has-video': hasVideo(u.userId) }" @dblclick="hasVideo(u.userId) && toggleFocus(u.userId)">
         <div class="vc-latency"
-             :style="{ color: u.userId === authStore.user?.id ? latencyColor(wsStore.serverLatency) : latencyColor(rtcStore.remotePeers[u.userId]?.latency ?? -1) }">
+             :style="{ color: u.userId === authStore.user?.id ? latencyColor(wsStore.serverLatency) : latencyColor(peerLatency(u.userId)) }">
           <template v-if="u.userId === authStore.user?.id">
             {{ wsStore.serverLatency >= 0 ? wsStore.serverLatency + 'ms' : '--' }}
           </template>
           <template v-else>
-            {{ rtcStore.remotePeers[u.userId]?.latency >= 0 ? rtcStore.remotePeers[u.userId].latency + 'ms' : '--' }}
+            {{ peerLatency(u.userId) >= 0 ? peerLatency(u.userId) + 'ms' : '--' }}
           </template>
         </div>
         <!-- Self video/screen preview -->

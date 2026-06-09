@@ -1,6 +1,7 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
 import {useSettingsStore} from './settings'
+import {useAuthStore} from './auth'
 
 export interface RemotePeer {
     userId: number
@@ -13,6 +14,7 @@ export interface RemotePeer {
     connState: RTCPeerConnectionState
     quality: number
     latency: number
+    pingChannel: RTCDataChannel | null
 }
 
 export function connStateLabel(state: string): string {
@@ -38,6 +40,7 @@ export function connStateColor(state: string): string {
 export const useRtcStore = defineStore('rtc', () => {
     const localStream = ref<MediaStream | null>(null)
     const remotePeers = ref<Record<number, RemotePeer>>({})
+    const relayLatencies = ref<Record<number, number>>({})
     const activeRoomId = ref<number | null>(null)
     const videoEnabled = ref(false)
     const screenSharing = ref(false)
@@ -203,7 +206,7 @@ export const useRtcStore = defineStore('rtc', () => {
     function addRemotePeer(userId: number, username: string, pc: RTCPeerConnection) {
         remotePeers.value = {...remotePeers.value, [userId]: {
             userId, username, stream: null, pc, iceBuffer: [], audioEl: null, quality: 0,
-            iceState: 'new', connState: 'new', latency: -1,
+            iceState: 'new', connState: 'new', latency: -1, pingChannel: null,
         }}
     }
 
@@ -227,6 +230,7 @@ export const useRtcStore = defineStore('rtc', () => {
             delete next[userId];
             remotePeers.value = next
         }
+        const rl = {...relayLatencies.value}; delete rl[userId]; relayLatencies.value = rl
     }
 
     function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
@@ -285,15 +289,32 @@ export const useRtcStore = defineStore('rtc', () => {
         let pingChannel: RTCDataChannel | null = null
         let p2pTimer: ReturnType<typeof setInterval> | null = null
 
+        function sendRelayPings() {
+          const myId = useAuthStore().user?.id || 0
+          const roomId = activeRoomId.value
+          if (!roomId || hostId.value === myId) return // Only non-host sends relay pings
+          if (!pingChannel || pingChannel.readyState !== 'open') return
+          const users = getVoiceUsers(roomId)
+          for (const u of users) {
+            if (u.userId === myId || u.userId === hostId.value) continue // Skip self and host
+            if (remotePeers.value[u.userId]) continue // Skip direct peers
+            pingChannel.send(JSON.stringify({ type: 'relay-ping', from: myId, target: u.userId, ts: performance.now() }))
+          }
+        }
+
         function startP2pPing() {
           p2pTimer = setInterval(() => {
             if (!pingChannel || pingChannel.readyState !== 'open') return
             pingChannel.send(JSON.stringify({ type: 'ping', ts: performance.now() }))
+            sendRelayPings()
           }, 3000)
         }
 
         function setupChannel(ch: RTCDataChannel) {
           pingChannel = ch
+          // Store on peer for relay lookup
+          const peer = remotePeers.value[targetId]
+          if (peer) { peer.pingChannel = ch; remotePeers.value = {...remotePeers.value} }
           ch.onmessage = (e) => {
             try {
               const data = JSON.parse(e.data)
@@ -301,8 +322,33 @@ export const useRtcStore = defineStore('rtc', () => {
                 ch.send(JSON.stringify({ type: 'pong', ts: data.ts }))
               } else if (data.type === 'pong') {
                 const rtt = performance.now() - (data.ts as number)
-                const peer = remotePeers.value[targetId]
-                if (peer) { peer.latency = Math.round(rtt); remotePeers.value = {...remotePeers.value} }
+                const p = remotePeers.value[targetId]
+                if (p) { p.latency = Math.round(rtt); remotePeers.value = {...remotePeers.value} }
+              } else if (data.type === 'relay-ping') {
+                const myId = useAuthStore().user?.id
+                // If I'm the target, respond with relay-pong back to sender
+                if (data.target === myId) {
+                  ch.send(JSON.stringify({ type: 'relay-pong', from: myId, target: data.from, ts: data.ts }))
+                } else {
+                  // I'm the Host: forward to target peer
+                  const tp = remotePeers.value[data.target]
+                  if (tp?.pingChannel && tp.pingChannel.readyState === 'open') {
+                    tp.pingChannel.send(JSON.stringify({ type: 'relay-ping', from: data.from, target: data.target, ts: data.ts }))
+                  }
+                }
+              } else if (data.type === 'relay-pong') {
+                const myId = useAuthStore().user?.id
+                if (data.target === myId) {
+                  // I'm the original sender: this is the result
+                  const rtt = performance.now() - (data.ts as number)
+                  relayLatencies.value = {...relayLatencies.value, [data.from]: Math.round(rtt)}
+                } else {
+                  // I'm the Host: forward pong back to original sender
+                  const tp = remotePeers.value[data.target]
+                  if (tp?.pingChannel && tp.pingChannel.readyState === 'open') {
+                    tp.pingChannel.send(JSON.stringify({ type: 'relay-pong', from: data.from, target: data.target, ts: data.ts }))
+                  }
+                }
               }
             } catch {}
           }
@@ -391,6 +437,7 @@ export const useRtcStore = defineStore('rtc', () => {
         Object.values(remotePeers.value).forEach(p => p.pc.close())
         Object.keys(remoteVadTimers).forEach(uid => stopRemoteVad(Number(uid)))
         remotePeers.value = {}
+        relayLatencies.value = {}
         if (activeRoomId.value) clearVoiceUsers(activeRoomId.value)
         stopVad()
         if (localStream.value) {
@@ -821,7 +868,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     return {
-        localStream, remotePeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
+        localStream, remotePeers, relayLatencies, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
         hostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
         speaking, remoteSpeaking, monitoring, setMonitoring,
