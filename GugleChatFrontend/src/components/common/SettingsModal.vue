@@ -20,6 +20,7 @@ const turnUrl = ref('')
 const turnUsername = ref('')
 const turnPassword = ref('')
 const showTurn = ref(false)
+const formModel = ref({})
 
 onMounted(() => {
   backendUrl.value = localStorage.getItem('guglechat_backend_url') || ''
@@ -50,7 +51,7 @@ function handleLogout() {
 
 <template>
   <a-modal :visible="visible" @cancel="handleClose" :footer="false" :width="460" title="Settings" :mask-closable="true">
-    <a-form layout="vertical">
+    <a-form layout="vertical" :model="formModel">
       <a-form-item><p>Logged in as <strong>{{ authStore.user?.username }}</strong></p></a-form-item>
       <a-form-item label="Theme">
         <a-button @click="themeStore.toggle">

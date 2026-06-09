@@ -145,13 +145,6 @@ export const useRtcStore = defineStore('rtc', () => {
         const pc = new RTCPeerConnection({iceServers: getIceServers()})
         addRemotePeer(targetId, username, pc)
 
-        pc.onnegotiationneeded = async () => {
-            try {
-                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
-                await pc.setLocalDescription(offer)
-                sendSignaling('rtc.offer', { target: targetId, sdp: offer })
-            } catch (e) { /* ignore */ }
-        }
         pc.onicecandidate = (event) => {
             if (event.candidate) {
                 sendSignaling('rtc.ice-candidate', {target: targetId, candidate: event.candidate})
@@ -172,7 +165,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 audio.controls = false
                 audio.style.display = 'none'
                 document.body.appendChild(audio)
-                audio.play().catch(e => console.warn('[RTC] audio play blocked:', e))
+                audio.play().catch(() => { /* autoplay policy — audio resumes on user interaction */ })
                 if (peer) { peer.audioEl = audio; remotePeers.value = {...remotePeers.value} }
                 // Remote VAD: detect when this peer is speaking
                 startRemoteVad(targetId, stream)
@@ -194,7 +187,7 @@ export const useRtcStore = defineStore('rtc', () => {
             }
         }
 
-        // P2P latency measurement via data channel
+        // P2P latency measurement via data channel (received from offerer)
         const LATENCY_LABEL = 'gugle-ping'
         let pingChannel: RTCDataChannel | null = null
         let p2pTimer: ReturnType<typeof setInterval> | null = null
@@ -225,13 +218,15 @@ export const useRtcStore = defineStore('rtc', () => {
           if (ch.readyState === 'open') startP2pPing()
         }
 
-        // Offerer side: create data channel
-        const dc = pc.createDataChannel(LATENCY_LABEL, { negotiated: false, id: 42 })
-        setupChannel(dc)
-
-        // Answerer side: receive data channel
+        // Answerer side: receive data channel from offerer
         pc.ondatachannel = (event) => {
           if (event.channel.label === LATENCY_LABEL) setupChannel(event.channel)
+        }
+
+        // Expose for offerer to create data channel before creating offer
+        pc._gugleInitPing = () => {
+          if (pingChannel) return
+          setupChannel(pc.createDataChannel(LATENCY_LABEL))
         }
 
         // Add local tracks directly (standard WebRTC approach)

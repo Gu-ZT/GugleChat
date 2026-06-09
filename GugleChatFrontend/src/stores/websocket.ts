@@ -84,10 +84,12 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
   function sendSignaling(destination: string, payload: Record<string, unknown>) {
     if (!client?.connected) return
-    client.publish({
-      destination: `/app/${destination}`,
-      body: JSON.stringify(payload),
-    })
+    try {
+      client.publish({
+        destination: `/app/${destination}`,
+        body: JSON.stringify(payload),
+      })
+    } catch { /* connection dropped between check and publish */ }
   }
 
   function subscribeToChannel(channelId: number) {

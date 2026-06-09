@@ -47,6 +47,8 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
 
 async function createOffer(targetId: number, username: string) {
   const pc = rtcStore.createPeerConnection(targetId, username)
+  // Offerer: init ping data channel before creating offer (to include in SDP)
+  ;(pc as any)._gugleInitPing?.()
   // Host: when receiving a track, forward to all other peers
   const myId = authStore.user?.id || 0
   pc.addEventListener('track', (event: RTCTrackEvent) => {
