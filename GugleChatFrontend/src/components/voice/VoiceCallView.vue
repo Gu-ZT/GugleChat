@@ -101,7 +101,7 @@ function getStream(uid: number): MediaStream | null {
 <style scoped>
 .voice-call-view {
   flex: 1; display: flex; flex-direction: column;
-  background: var(--color-bg-1); position: relative;
+  background: transparent; position: relative;
 }
 .vc-header {
   display: flex; align-items: center; gap: 8px;
@@ -116,7 +116,7 @@ function getStream(uid: number): MediaStream | null {
 .vc-card {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   width: 150px; padding: 12px 8px; border-radius: 8px;
-  background: var(--color-bg-2); gap: 6px; cursor: pointer; position: relative;
+  background: var(--color-bg-1); gap: 6px; cursor: pointer; position: relative;
   aspect-ratio: 1 / 1.59;
 }
 .vc-card:hover { background: var(--color-bg-3); }

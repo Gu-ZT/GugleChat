@@ -67,7 +67,7 @@ onUnmounted(() => wsStore.disconnect())
 .main-layout { display: flex; height: 100vh; }
 .main-content {
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
-  background: var(--color-bg-1);
+  background: var(--color-bg-2);
 }
 .empty-state {
   flex: 1; display: flex; flex-direction: column; align-items: center;
