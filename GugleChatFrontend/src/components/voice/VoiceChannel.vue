@@ -107,9 +107,9 @@ async function handleAnswer(body: Record<string, unknown>) {
   if (!peer) return
   try {
     await peer.pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
-  } catch (e) {
-    // Ignore if already in stable state (duplicate answer)
-    if (peer.pc.signalingState !== 'stable') throw e
+  } catch (e: any) {
+    if (e.name === 'InvalidStateError') return
+    throw e
   }
   // Flush buffered ICE candidates
   for (const c of peer.iceBuffer) {

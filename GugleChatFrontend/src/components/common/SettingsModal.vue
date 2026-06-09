@@ -50,8 +50,8 @@ function handleLogout() {
 
 <template>
   <a-modal :visible="visible" @cancel="handleClose" :footer="false" :width="460" title="Settings" :mask-closable="true">
-    <a-space direction="vertical" size="large" fill>
-      <div><p>Logged in as <strong>{{ authStore.user?.username }}</strong></p></div>
+    <a-form layout="vertical">
+      <a-form-item><p>Logged in as <strong>{{ authStore.user?.username }}</strong></p></a-form-item>
       <a-form-item label="Theme">
         <a-button @click="themeStore.toggle">
           <template #icon><IconSun v-if="themeStore.mode === 'light'" /><IconMoon v-else /></template>
@@ -80,6 +80,6 @@ function handleLogout() {
       </template>
       <a-divider />
       <a-button type="primary" status="danger" long @click="handleLogout"><template #icon><IconPoweroff /></template>Logout</a-button>
-    </a-space>
+    </a-form>
   </a-modal>
 </template>

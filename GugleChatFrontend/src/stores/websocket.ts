@@ -83,7 +83,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   function sendSignaling(destination: string, payload: Record<string, unknown>) {
-    if (!client) return
+    if (!client?.connected) return
     client.publish({
       destination: `/app/${destination}`,
       body: JSON.stringify(payload),
