@@ -12,6 +12,31 @@ const authStore = useAuthStore()
 // Wire up RTC signaling
 rtcStore.setSendSignaling((dest: string, payload: Record<string, unknown>) => wsStore.sendSignaling(dest, payload))
 
+// Host audio mixer — shared across all peer connections
+let mixCtx: AudioContext | null = null
+let mixDest: MediaStreamAudioDestinationNode | null = null
+const mixSources = new Map<string, MediaStreamAudioSourceNode>()
+
+function ensureMixer() {
+  if (mixCtx) return
+  mixCtx = new AudioContext()
+  mixDest = mixCtx.createMediaStreamDestination()
+  if (rtcStore.localStream) {
+    const hostSource = mixCtx.createMediaStreamSource(rtcStore.localStream)
+    hostSource.connect(mixDest!)
+  }
+}
+
+function applyMixedTrackToAll() {
+  if (!mixDest) return
+  const mixedTrack = mixDest.stream.getAudioTracks()[0]
+  const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
+  for (const uid of Object.keys(peers)) {
+    const sender = peers[Number(uid)].pc.getSenders().find(s => s.track?.kind === 'audio')
+    if (sender) sender.replaceTrack(mixedTrack)
+  }
+}
+
 wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   const type = body.type as string
   const myId = authStore.user?.id || 0
@@ -46,45 +71,25 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
 
 async function createOffer(targetId: number, username: string) {
   const pc = rtcStore.createPeerConnection(targetId, username)
-  // Offerer: init ping data channel before creating offer (to include in SDP)
   ;(pc as any)._gugleInitPing?.()
-  // Host audio mixing: merge all remote streams + local mic into one output
   const myId = authStore.user?.id || 0
-  let mixCtx: AudioContext | null = null
-  let mixDest: MediaStreamAudioDestinationNode | null = null
-  const mixSources = new Map<string, MediaStreamAudioSourceNode>() // track.id -> source
+  // Track event: add remote audio to shared mixer
   pc.addEventListener('track', (event: RTCTrackEvent) => {
     if (rtcStore.hostId !== myId) return
     const stream = event.streams[0]
     if (!stream) return
-    // Add remote audio to mixer
     for (const track of stream.getTracks()) {
       if (mixSources.has(track.id)) continue
-      if (!mixCtx) {
-        mixCtx = new AudioContext()
-        mixDest = mixCtx.createMediaStreamDestination()
-        // Add host's own mic to the mixer
-        if (rtcStore.localStream) {
-          const hostSource = mixCtx.createMediaStreamSource(rtcStore.localStream)
-          hostSource.connect(mixDest!)
-        }
-        // Replace host's outgoing audio with mixed output on all peer connections
-        const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection }>
-        const mixedTrack = mixDest!.stream.getAudioTracks()[0]
-        for (const uid of Object.keys(peers)) {
-          const sender = peers[Number(uid)].pc.getSenders().find(s => s.track?.kind === 'audio')
-          if (sender) sender.replaceTrack(mixedTrack)
-        }
-      }
-      const source = mixCtx.createMediaStreamSource(new MediaStream([track]))
+      ensureMixer()
+      const source = mixCtx!.createMediaStreamSource(new MediaStream([track]))
       source.connect(mixDest!)
       mixSources.set(track.id, source)
-      track.onended = () => {
-        source.disconnect()
-        mixSources.delete(track.id)
-      }
+      track.onended = () => { source.disconnect(); mixSources.delete(track.id) }
     }
+    applyMixedTrackToAll()
   })
+  // If mixer already active, apply to new PC immediately
+  if (mixCtx) applyMixedTrackToAll()
   const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
   await pc.setLocalDescription(offer)
   const myName = authStore.user?.username || 'Me'
@@ -152,8 +157,16 @@ async function handleIceCandidate(body: Record<string, unknown>) {
 }
 
 onUnmounted(() => {
+  cleanupMixer()
   if (rtcStore.activeRoomId) rtcStore.endCall()
 })
+
+function cleanupMixer() {
+  mixSources.forEach(s => s.disconnect())
+  mixSources.clear()
+  if (mixCtx) { mixCtx.close(); mixCtx = null }
+  mixDest = null
+}
 </script>
 
 <template>
