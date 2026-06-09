@@ -350,7 +350,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: ac})
                 console.log('[RTC] microphone OK')
                 startVad()
-                if (rnnoiseEnabled.value) initRnnoise()
+                if (rnnoiseEnabled.value) await initRnnoise()
             } catch (e: any) {
                 console.error('[RTC] microphone denied:', e.name, e.message)
             }
@@ -518,6 +518,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     async function initRnnoise() {
         if (!audioCtx || !localStream.value) return
+        if (audioCtx.state === 'suspended') await audioCtx.resume()
         destroyRnnoise()
         try {
             const [{ NoiseSuppressorWorklet_Name }, { default: workletUrl }] = await Promise.all([
@@ -654,6 +655,7 @@ export const useRtcStore = defineStore('rtc', () => {
                 } catch (e) { monitoring.value = false; return }
             }
             if (!audioCtx) { audioCtx = new AudioContext() }
+            if (rnnoiseEnabled.value) await initRnnoise()
             await startMonitor()
         } else {
             stopMonitor()

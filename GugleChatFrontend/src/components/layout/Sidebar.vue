@@ -222,7 +222,7 @@ function handleLogout() {
           <template #content>
             <div class="device-list" style="min-width:180px">
               <div class="device-title">Audio Processing</div>
-              <a-form-item label="RNNoise (AI)">
+              <a-form-item label="AI Noise Suppression">
                 <a-switch :model-value="rtcStore.rnnoiseEnabled" :disabled="!rtcStore.noiseFxEnabled" size="small"
                           @change="rtcStore.toggleRnnoise()" style="margin-left:auto" />
               </a-form-item>
