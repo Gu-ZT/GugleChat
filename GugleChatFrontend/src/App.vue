@@ -10,7 +10,7 @@ watch(() => themeStore.mode, (mode) => {
 </script>
 
 <template>
-  <a-config-provider :theme="themeStore.mode">
+  <a-config-provider>
     <router-view />
   </a-config-provider>
 </template>
