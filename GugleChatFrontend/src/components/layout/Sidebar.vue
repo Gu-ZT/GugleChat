@@ -220,17 +220,17 @@ function handleLogout() {
             <template #icon><IconVoice/></template>
           </a-button>
           <template #content>
+            <div class="device-title">Audio Input</div>
             <div class="device-list">
-              <div class="device-title">Audio Input</div>
               <div v-for="d in rtcStore.audioInputs" :key="d.deviceId"
                    class="device-item"
                    :class="{ active: d.deviceId === rtcStore.currentAudioDevice }"
                    @click="rtcStore.switchAudioDevice(d.deviceId)">{{ d.label }}
               </div>
-              <div class="device-title" style="margin-top:8px">Mic Volume</div>
-              <a-slider :model-value="rtcStore.micVolume" :min="0" :max="150" :step="1"
-                        @change="rtcStore.setMicVolume($event as number)" style="width:100%"/>
             </div>
+            <div class="device-title" style="margin-top:8px">Mic Volume</div>
+            <a-slider :model-value="rtcStore.micVolume" :min="0" :max="150" :step="1"
+                      @change="rtcStore.setMicVolume($event as number)" style="width:100%"/>
           </template>
         </a-popover>
         <a-button type="text" size="mini"
@@ -518,7 +518,7 @@ function handleLogout() {
 }
 
 .device-list {
-  min-width: 180px;
+  min-width: 180px; max-height: 320px; overflow-y: auto;
 }
 
 .device-title {
