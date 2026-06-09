@@ -1,15 +1,21 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 const STORAGE_KEY = 'guglechat_backend_url'
+const NAT_KEY = 'guglechat_nat_override'
 
 export const useSettingsStore = defineStore('settings', () => {
   const backendUrl = ref(localStorage.getItem(STORAGE_KEY) || '')
+  const natOverride = ref(localStorage.getItem(NAT_KEY) || '')
 
   function setBackendUrl(url: string) {
-    // Normalize: trim trailing slash
     backendUrl.value = url.replace(/\/+$/, '')
     localStorage.setItem(STORAGE_KEY, backendUrl.value)
+  }
+
+  function setNatOverride(value: string) {
+    natOverride.value = value
+    localStorage.setItem(NAT_KEY, value)
   }
 
   function getApiUrl(): string {
@@ -21,5 +27,5 @@ export const useSettingsStore = defineStore('settings', () => {
     return url.replace(/^http/, 'ws')
   }
 
-  return { backendUrl, setBackendUrl, getApiUrl, getWsUrl }
+  return { backendUrl, natOverride, setBackendUrl, setNatOverride, getApiUrl, getWsUrl }
 })

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import { useSettingsStore } from '@/stores/settings'
 import { useWebSocketStore } from '@/stores/websocket'
 import { Message } from '@arco-design/web-vue'
 import { IconPoweroff, IconSun, IconMoon, IconClose } from '@arco-design/web-vue/es/icon'
@@ -11,6 +12,7 @@ const emit = defineEmits(['update:visible', 'logout'])
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const settingsStore = useSettingsStore()
 const wsStore = useWebSocketStore()
 
 const backendUrl = ref('')
@@ -60,6 +62,16 @@ function handleLogout() {
         <a-input v-model="backendUrl" placeholder="http://server:3250" allow-clear @change="saveBackendUrl" />
       </a-form-item>
       <a-divider>Voice & Video</a-divider>
+      <a-form-item label="NAT Type" help="Override auto-detection. Worse type between manual & detected is used.">
+        <a-select :model-value="settingsStore.natOverride" placeholder="Auto" allow-clear
+                  @update:model-value="settingsStore.setNatOverride" :style="{ width: '100%' }">
+          <a-option value="">Auto (detect)</a-option>
+          <a-option value="1">NAT1 — Open / Full Cone</a-option>
+          <a-option value="2">NAT2 — Restricted Cone</a-option>
+          <a-option value="3">NAT3 — Port Restricted Cone</a-option>
+          <a-option value="4">NAT4 — Symmetric</a-option>
+        </a-select>
+      </a-form-item>
       <a-button type="text" long @click="showTurn = !showTurn">{{ showTurn ? '▼' : '▶' }} TURN Server Config</a-button>
       <template v-if="showTurn">
         <a-form-item label="TURN URL"><a-input v-model="turnUrl" placeholder="turn:server:3478" allow-clear @change="saveTurn" /></a-form-item>

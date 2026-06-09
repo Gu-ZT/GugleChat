@@ -1,5 +1,6 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
+import {useSettingsStore} from './settings'
 
 export interface RemotePeer {
     userId: number
@@ -277,6 +278,16 @@ export const useRtcStore = defineStore('rtc', () => {
             } catch { natScore = await detectNatType() }
         } else {
             natScore = await detectNatType()
+        }
+        // Apply manual NAT override: use the worse (lower score) between manual and detected
+        const natOverride = useSettingsStore().natOverride
+        if (natOverride) {
+            const natScoreMap: Record<string, number> = { '1': 1.0, '2': 0.8, '3': 0.6, '4': 0.25 }
+            const manualScore = natScoreMap[natOverride] ?? 1.0
+            if (manualScore < natScore) {
+                console.log(`[RTC] NAT overridden: detected=${natScore} → manual=${manualScore} (worse)`)
+                natScore = manualScore
+            }
         }
         const bwScore = Math.min(((navigator as any).connection?.downlink as number) || 1.0, 20) / 20
         const quality = natScore * 5 + bwScore
