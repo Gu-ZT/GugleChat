@@ -593,6 +593,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     async function initRnnoise() {
+        if (!noiseFxEnabled.value || !rnnoiseEnabled.value) return
         if (!audioCtx || !localStream.value) return
         if (audioCtx.state === 'suspended') await audioCtx.resume()
         destroyRnnoise()
