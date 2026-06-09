@@ -43,14 +43,23 @@ async function handleCreate() {
 
 function handleChannelClick(c: { id: number; type: ChannelType }) {
   if (c.type === 'VOICE') {
+    // Double-click → join/switch voice room
     if (clickTimer) {
       clearTimeout(clickTimer); clickTimer = null
       wsStore.subscribeToChannel(c.id)
       rtcStore.startCall(c.id)
-      rtcStore.showVoiceChat = false
+      rtcStore.showVoiceChat = false // show voice participants
+      // Don't change currentChannel — let the VoiceCallView show instead
       return
     }
     clickTimer = setTimeout(() => { clickTimer = null }, 300)
+    // Single click: if already in this voice room → show participants; else → text chat
+    if (rtcStore.activeRoomId === c.id) {
+      rtcStore.showVoiceChat = false // show VoiceCallView for this room
+      channelStore.selectChannel(c.id)
+      wsStore.subscribeToChannel(c.id)
+      return
+    }
   }
   selectTextChannel(c.id)
 }
@@ -58,12 +67,12 @@ function handleChannelClick(c: { id: number; type: ChannelType }) {
 function selectTextChannel(id: number) {
   channelStore.selectChannel(id)
   wsStore.subscribeToChannel(id)
-  // Voice channel: show text chat; Text channel: hide voice view
-  rtcStore.showVoiceChat = channelStore.currentChannel?.type === 'VOICE'
+  // Never auto-switch to voice chat mode — only 💬 button does that
 }
 
 function openVoiceChat(c: { id: number; type: ChannelType }) {
   selectTextChannel(c.id)
+  rtcStore.showVoiceChat = true
 }
 
 function handleLogout() { wsStore.disconnect(); authStore.logout(); router.push('/login') }

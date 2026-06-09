@@ -16,7 +16,8 @@ const wsStore = useWebSocketStore()
 
 // Show VoiceCallView when in voice call and NOT viewing text chat
 const showVoiceView = computed(() =>
-  rtcStore.activeRoomId && !rtcStore.showVoiceChat
+  rtcStore.activeRoomId && !rtcStore.showVoiceChat &&
+  (!channelStore.currentChannel || channelStore.currentChannel.type === 'VOICE')
 )
 
 // Show ChatArea when we have a current channel AND either it's a text channel or voice with chat mode
