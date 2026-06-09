@@ -9,6 +9,7 @@ import {
   IconCloseCircle,
   IconDesktop,
   IconMessage,
+  IconMute,
   IconPlus,
   IconSettings,
   IconSound,
@@ -232,7 +233,10 @@ function handleLogout() {
         <a-button type="text" size="mini"
                   :class="{ 'mic-muted': !rtcStore.speakerEnabled }"
                   @click="rtcStore.toggleSpeaker()" title="Mute Speaker">
-          <template #icon><IconSound/></template>
+          <template #icon>
+            <IconSound v-if="rtcStore.speakerEnabled"/>
+            <IconMute v-else/>
+          </template>
         </a-button>
         <a-button type="text" size="mini" @click="emit('openSettings')" title="Settings">
           <template #icon><IconSettings/></template>
