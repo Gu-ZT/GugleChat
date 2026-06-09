@@ -13,6 +13,7 @@ import {
   IconPlus,
   IconSettings,
   IconSound,
+  IconThunderbolt,
   IconVideoCamera,
   IconVoice
 } from '@arco-design/web-vue/es/icon'
@@ -213,6 +214,24 @@ function handleLogout() {
         </div>
       </div>
       <div class="user-actions">
+        <a-popover trigger="hover" position="top">
+          <a-button type="text" size="mini"
+                    :class="{ 'fx-active': rtcStore.noiseFxEnabled }"
+                    @click="rtcStore.toggleNoiseFx()" title="Noise Suppression">
+            <template #icon><IconThunderbolt/></template>
+          </a-button>
+          <template #content>
+            <div class="device-list" style="min-width:180px">
+              <div class="device-title">Audio Processing</div>
+              <a-form-item label="Echo Cancellation">
+                <a-switch :model-value="rtcStore.echoCancellation" :disabled="!rtcStore.noiseFxEnabled" size="small" style="margin-left:auto" />
+              </a-form-item>
+              <a-form-item label="Noise Suppression">
+                <a-switch :model-value="rtcStore.noiseSuppression" :disabled="!rtcStore.noiseFxEnabled" size="small" style="margin-left:auto" />
+              </a-form-item>
+            </div>
+          </template>
+        </a-popover>
         <a-popover trigger="hover" position="top">
           <a-button type="text" size="mini"
                     :class="{ 'mic-muted': !rtcStore.audioEnabled }"
@@ -659,4 +678,6 @@ function handleLogout() {
   background: var(--color-bg-3);
 }
 .mic-muted, .mic-muted :deep(*) { color: rgb(var(--red-6)) !important; }
+.fx-active, .fx-active :deep(*) { color: rgb(var(--green-6)) !important; }
+.fx-disabled { opacity: 0.4; pointer-events: none; }
 </style>

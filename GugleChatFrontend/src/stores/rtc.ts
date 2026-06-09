@@ -43,6 +43,9 @@ export const useRtcStore = defineStore('rtc', () => {
     const screenSharing = ref(false)
     const audioEnabled = ref(true)
     const speakerEnabled = ref(true)
+    const echoCancellation = ref(localStorage.getItem('guglechat_echo_cancel') !== 'false')
+    const noiseSuppression = ref(localStorage.getItem('guglechat_noise_suppress') !== 'false')
+    const noiseFxEnabled = ref(localStorage.getItem('guglechat_noise_fx') === 'true')
 
     interface VoiceUser {
         userId: number;
@@ -223,7 +226,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
-        const pc = new RTCPeerConnection({iceServers: getIceServers()})
+        const pc = Object.assign(new RTCPeerConnection({iceServers: getIceServers()}), {_gugleInitPing: undefined as any})
         addRemotePeer(targetId, username, pc)
 
         pc.onicecandidate = (event) => {
@@ -336,10 +339,11 @@ export const useRtcStore = defineStore('rtc', () => {
         // Try to get audio (may fail without HTTPS/localhost)
         if (navigator.mediaDevices) {
             try {
-                const audioOpt = currentAudioDevice.value
-                    ? { deviceId: { exact: currentAudioDevice.value } } as MediaTrackConstraints
-                    : true
-                localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: audioOpt})
+                const ac: MediaTrackConstraints = getAudioConstraints()
+                if (currentAudioDevice.value) {
+                    (ac as any).deviceId = { exact: currentAudioDevice.value }
+                }
+                localStream.value = await navigator.mediaDevices.getUserMedia({video: false, audio: ac})
                 console.log('[RTC] microphone OK')
                 startVad()
             } catch (e: any) {
@@ -430,6 +434,30 @@ export const useRtcStore = defineStore('rtc', () => {
         Object.values(remotePeers.value).forEach(p => {
             if (p.audioEl) p.audioEl.muted = !speakerEnabled.value
         })
+    }
+
+    function toggleNoiseFx() {
+        noiseFxEnabled.value = !noiseFxEnabled.value
+        localStorage.setItem('guglechat_noise_fx', String(noiseFxEnabled.value))
+    }
+
+    function toggleEchoCancellation() {
+        echoCancellation.value = !echoCancellation.value
+        localStorage.setItem('guglechat_echo_cancel', String(echoCancellation.value))
+    }
+
+    function toggleNoiseSuppression() {
+        noiseSuppression.value = !noiseSuppression.value
+        localStorage.setItem('guglechat_noise_suppress', String(noiseSuppression.value))
+    }
+
+    function getAudioConstraints(): MediaTrackConstraints {
+        const on = noiseFxEnabled.value
+        return {
+            echoCancellation: on && echoCancellation.value,
+            noiseSuppression: on && noiseSuppression.value,
+            autoGainControl: on,
+        }
     }
 
     async function toggleScreenShare() {
@@ -683,6 +711,9 @@ export const useRtcStore = defineStore('rtc', () => {
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         speakerEnabled, toggleSpeaker,
+        echoCancellation, toggleEchoCancellation,
+        noiseSuppression, toggleNoiseSuppression,
+        noiseFxEnabled, toggleNoiseFx,
         micVolume, setMicVolume,
         speakerVolume, setSpeakerVolume,
         audioOutputs, currentOutputDevice, enumerateAudioOutputs, switchAudioOutput,
