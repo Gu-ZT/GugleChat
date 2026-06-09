@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dubhe.gugle.chat.android.ui.LoginScreen
 import dev.dubhe.gugle.chat.android.ui.MainScreen
 import dev.dubhe.gugle.chat.android.ui.RegisterScreen
+import dev.dubhe.gugle.chat.android.data.Channel
 import dev.dubhe.gugle.chat.android.viewmodel.ChatViewModel
 
 class MainActivity : ComponentActivity() {
@@ -33,12 +34,14 @@ class MainActivity : ComponentActivity() {
             var showRegister by remember { mutableStateOf(false) }
             var error by remember { mutableStateOf<String?>(null) }
 
-            // Request audio permission
+            // Request audio permission + auto-join voice after grant
+            var pendingVoiceChannel by remember { mutableStateOf<dev.dubhe.gugle.chat.android.data.Channel?>(null) }
             val audioPermLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission()
             ) { granted ->
                 if (granted) {
-                    // Permission granted, voice call will be started by the click handler
+                    pendingVoiceChannel?.let { viewModel.startVoiceCall(it) }
+                    pendingVoiceChannel = null
                 }
             }
 
@@ -50,10 +53,15 @@ class MainActivity : ComponentActivity() {
                     if (loggedIn) {
                         MainScreen(
                             viewModel, { viewModel.logout() },
-                            onRequestAudioPermission = {
+                            onRequestAudioPermission = { channel ->
                                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                                    == PackageManager.PERMISSION_GRANTED) true
-                                else { audioPermLauncher.launch(Manifest.permission.RECORD_AUDIO); false }
+                                    == PackageManager.PERMISSION_GRANTED) {
+                                    true
+                                } else {
+                                    pendingVoiceChannel = channel
+                                    audioPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    false
+                                }
                             }
                         )
                     } else if (showRegister) {
