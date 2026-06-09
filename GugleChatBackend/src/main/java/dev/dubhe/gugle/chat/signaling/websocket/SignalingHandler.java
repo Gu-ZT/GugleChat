@@ -66,9 +66,11 @@ public class SignalingHandler {
     }
 
     private void broadcastVoiceUsers(Long roomId) {
+        Long host = roomService.getHost(roomId);
         messagingTemplate.convertAndSend("/topic/channel." + roomId,
-                Map.of("type", "voice-users", "users", roomService.getRoomUsers(roomId),
-                       "hostId", roomService.getHost(roomId)));
+                Map.of("type", "voice-users",
+                       "users", roomService.getRoomUsers(roomId),
+                       "hostId", host != null ? host : 0L));
     }
 
     @MessageMapping("/rtc.offer")

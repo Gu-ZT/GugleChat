@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "dev.dubhe.gugle.chat",
   "build": {
-    "frontendDist": "../GugleChatFrontend/dist",
+    "frontendDist": "../../GugleChatFrontend/dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "cd ../GugleChatFrontend && npm run dev",
     "beforeBuildCommand": "cd ../GugleChatFrontend && npm run build"
