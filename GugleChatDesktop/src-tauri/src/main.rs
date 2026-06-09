@@ -1,15 +1,23 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod nat;
+
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
 
+#[tauri::command]
+fn check_nat_type() -> nat::NatResult {
+    nat::detect_nat_type()
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![check_nat_type])
         .setup(|app| {
             // System tray
             let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;

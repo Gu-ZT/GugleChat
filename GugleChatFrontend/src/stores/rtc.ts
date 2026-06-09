@@ -226,9 +226,19 @@ export const useRtcStore = defineStore('rtc', () => {
         videoEnabled.value = false
         audioEnabled.value = true
         // NAT type detection + bandwidth → composite quality score
-        const natScore = await detectNatType()
+        let natScore: number
+        if ((window as any).__TAURI__) {
+            // Tauri desktop: use Rust RFC 5780 STUN detection
+            try {
+                const result = await (window as any).__TAURI__.invoke('check_nat_type')
+                natScore = result.score
+                console.log(`[RTC] Tauri NAT: ${result.nat_type} score=${natScore}`, result.mappings)
+            } catch { natScore = await detectNatType() }
+        } else {
+            natScore = await detectNatType()
+        }
         const bwScore = Math.min(((navigator as any).connection?.downlink as number) || 1.0, 20) / 20
-        const quality = natScore * 5 + bwScore  // NAT weighted higher than bandwidth
+        const quality = natScore * 5 + bwScore
         console.log(`[RTC] NAT score=${natScore}, BW=${((navigator as any).connection?.downlink || 1)}Mbps, quality=${quality.toFixed(1)}`)
         sendSignaling('rtc.join/' + roomId, { quality })
     }
