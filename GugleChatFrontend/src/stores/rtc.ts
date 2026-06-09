@@ -62,9 +62,49 @@ export const useRtcStore = defineStore('rtc', () => {
     const monitoring = ref(false)
     const audioInputs = ref<AudioDevice[]>([])
     const currentAudioDevice = ref('')
+    const micVolume = ref(Number(localStorage.getItem('guglechat_mic_volume') || 100))
     let audioCtx: AudioContext | null = null
     let vadTimer: number | null = null
     let monitorGain: GainNode | null = null
+    let micGainNode: GainNode | null = null
+    let micProcessedTrack: MediaStreamTrack | null = null
+
+    function setMicVolume(v: number) {
+        micVolume.value = v
+        localStorage.setItem('guglechat_mic_volume', String(v))
+        if (micGainNode) micGainNode.gain.value = v / 100
+        applyMicGain()
+    }
+
+    function applyMicGain() {
+        if (!localStream.value) return
+        const origTrack = localStream.value.getAudioTracks()[0]
+        if (!origTrack) return
+        if (micVolume.value === 100) {
+            // Restore original track
+            if (micProcessedTrack) {
+                Object.values(remotePeers.value).forEach(p => {
+                    const s = p.pc.getSenders().find(s => s.track?.kind === 'audio')
+                    if (s) s.replaceTrack(origTrack)
+                })
+                micProcessedTrack.stop(); micProcessedTrack = null
+            }
+            return
+        }
+        const ctx = audioCtx || new AudioContext()
+        if (!micGainNode) {
+            const source = ctx.createMediaStreamSource(localStream.value)
+            micGainNode = ctx.createGain()
+            micGainNode.gain.value = micVolume.value / 100
+            const dest = ctx.createMediaStreamDestination()
+            source.connect(micGainNode).connect(dest)
+            micProcessedTrack = dest.stream.getAudioTracks()[0]
+        }
+        Object.values(remotePeers.value).forEach(p => {
+            const s = p.pc.getSenders().find(s => s.track?.kind === 'audio')
+            if (s) s.replaceTrack(micProcessedTrack!)
+        })
+    }
 
     function getIceServers(): RTCIceServer[] {
         const servers: RTCIceServer[] = [
@@ -597,6 +637,7 @@ export const useRtcStore = defineStore('rtc', () => {
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         speakerEnabled, toggleSpeaker,
+        micVolume, setMicVolume,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn
