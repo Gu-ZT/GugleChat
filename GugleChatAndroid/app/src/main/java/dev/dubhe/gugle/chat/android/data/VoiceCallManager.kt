@@ -85,7 +85,7 @@ class VoiceCallManager(
 
     private fun handleOffer(data: Map<String, Any>) {
         val senderId = (data["userId"] as Double).toLong()
-        val sdpStr = data["sdp"] as? String ?: return
+        val sdpStr = extractSdp(data) ?: return
         val sdp = SessionDescription(SessionDescription.Type.OFFER, sdpStr)
         val pc = createPeer(senderId)
         pc.setRemoteDescription(SdpObserverBase(), sdp)
@@ -97,9 +97,18 @@ class VoiceCallManager(
         }, MediaConstraints())
     }
 
+    private fun extractSdp(data: Map<String, Any>): String? {
+        val sdp = data["sdp"]
+        return when (sdp) {
+            is String -> sdp
+            is Map<*, *> -> sdp["sdp"] as? String
+            else -> null
+        }
+    }
+
     private fun handleAnswer(data: Map<String, Any>) {
         val senderId = (data["userId"] as Double).toLong()
-        val sdpStr = data["sdp"] as? String ?: return
+        val sdpStr = extractSdp(data) ?: return
         val sdp = SessionDescription(SessionDescription.Type.ANSWER, sdpStr)
         peers[senderId]?.setRemoteDescription(SdpObserverBase(), sdp)
     }
@@ -151,8 +160,10 @@ class VoiceCallManager(
         audioManager.mode = AudioManager.MODE_NORMAL
     }
 
-    private fun sdpToMap(sdp: SessionDescription) =
-        "${sdp.type.canonicalForm()}\n${sdp.description}"
+    private fun sdpToMap(sdp: SessionDescription): Map<String, String> = mapOf(
+        "type" to sdp.type.canonicalForm(),
+        "sdp" to sdp.description
+    )
 
     open class SdpObserverBase : SdpObserver {
         override fun onCreateSuccess(p0: SessionDescription) {}
