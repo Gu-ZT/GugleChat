@@ -41,6 +41,7 @@ export const useRtcStore = defineStore('rtc', () => {
     const localStream = ref<MediaStream | null>(null)
     const remotePeers = ref<Record<number, RemotePeer>>({})
     const relayLatencies = ref<Record<number, number>>({})
+    const peerConnStates = ref<Record<number, string>>({})
     const activeRoomId = ref<number | null>(null)
     const videoEnabled = ref(false)
     const screenSharing = ref(false)
@@ -292,13 +293,38 @@ export const useRtcStore = defineStore('rtc', () => {
         function sendRelayPings() {
           const myId = useAuthStore().user?.id || 0
           const roomId = activeRoomId.value
-          if (!roomId || hostId.value === myId) return // Only non-host sends relay pings
+          if (!roomId || hostId.value === myId) return
           if (!pingChannel || pingChannel.readyState !== 'open') return
           const users = getVoiceUsers(roomId)
           for (const u of users) {
-            if (u.userId === myId || u.userId === hostId.value) continue // Skip self and host
-            if (remotePeers.value[u.userId]) continue // Skip direct peers
+            if (u.userId === myId || u.userId === hostId.value) continue
+            if (remotePeers.value[u.userId]) continue
             pingChannel.send(JSON.stringify({ type: 'relay-ping', from: myId, target: u.userId, ts: performance.now() }))
+          }
+        }
+
+        function broadcastPeerStates() {
+          const myId = useAuthStore().user?.id || 0
+          if (hostId.value !== myId) return // Only host broadcasts
+          const states: Record<number, string> = {}
+          // Host itself is always 'connected'
+          states[myId] = 'connected'
+          // Add all remote peers' states
+          for (const [uid, p] of Object.entries(remotePeers.value)) {
+            states[Number(uid)] = p.iceState
+          }
+          // Also add voice users without peer connections as 'new'
+          const roomId = activeRoomId.value
+          if (roomId) {
+            for (const u of getVoiceUsers(roomId)) {
+              if (!(u.userId in states)) states[u.userId] = 'new'
+            }
+          }
+          // Broadcast to all connected peers
+          for (const p of Object.values(remotePeers.value)) {
+            if (p.pingChannel && p.pingChannel.readyState === 'open') {
+              p.pingChannel.send(JSON.stringify({ type: 'peer-states', states }))
+            }
           }
         }
 
@@ -307,6 +333,7 @@ export const useRtcStore = defineStore('rtc', () => {
             if (!pingChannel || pingChannel.readyState !== 'open') return
             pingChannel.send(JSON.stringify({ type: 'ping', ts: performance.now() }))
             sendRelayPings()
+            broadcastPeerStates()
           }, 3000)
         }
 
@@ -336,6 +363,8 @@ export const useRtcStore = defineStore('rtc', () => {
                     tp.pingChannel.send(JSON.stringify({ type: 'relay-ping', from: data.from, target: data.target, ts: data.ts }))
                   }
                 }
+              } else if (data.type === 'peer-states') {
+                peerConnStates.value = data.states as Record<number, string>
               } else if (data.type === 'relay-pong') {
                 const myId = useAuthStore().user?.id
                 if (data.target === myId) {
@@ -868,7 +897,7 @@ export const useRtcStore = defineStore('rtc', () => {
     }
 
     return {
-        localStream, remotePeers, relayLatencies, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
+        localStream, remotePeers, relayLatencies, peerConnStates, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, createPeerConnection,
         hostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing,
         speaking, remoteSpeaking, monitoring, setMonitoring,
