@@ -509,6 +509,16 @@ export const useRtcStore = defineStore('rtc', () => {
                 // Host stopped forwarding a video
                 const fromUserId = data.fromUserId as number
                 removeForwardedVideo(targetId, fromUserId)
+              } else if (data.type === 'video-off') {
+                // Peer turned off video — clean up forwarded videos from this peer on all others
+                const offUserId = targetId
+                for (const p of Object.values(remotePeers.value)) {
+                  removeForwardedVideo(p.userId, offUserId)
+                  // Also notify other peers to clean up via their ping channels
+                  if (p.pingChannel && p.pingChannel.readyState === 'open') {
+                    p.pingChannel.send(JSON.stringify({ type: 'video-fwd-end', fromUserId: offUserId }))
+                  }
+                }
               }
             } catch {}
           }
@@ -628,10 +638,24 @@ export const useRtcStore = defineStore('rtc', () => {
                 t.stop()
                 localStream.value?.removeTrack(t)
             })
-            Object.values(remotePeers.value).forEach(peer => {
+            for (const peer of Object.values(remotePeers.value)) {
                 const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-                if (sender) sender.replaceTrack(null)
-            })
+                if (sender) {
+                    peer.pc.removeTrack(sender)
+                    // Renegotiate so remote side knows track was removed
+                    try {
+                        const offer = await peer.pc.createOffer()
+                        await peer.pc.setLocalDescription(offer)
+                        sendSignaling('rtc.offer', { target: peer.userId, sdp: offer })
+                    } catch (e: any) {
+                        if (e.name !== 'InvalidStateError') console.warn('[RTC] video remove renegotiation failed:', e.message)
+                    }
+                    // Notify remote side that video stopped (for forwarding cleanup)
+                    if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
+                        peer.pingChannel.send(JSON.stringify({ type: 'video-off' }))
+                    }
+                }
+            }
             videoEnabled.value = false
             return
         }
@@ -653,13 +677,21 @@ export const useRtcStore = defineStore('rtc', () => {
                 })
                 localStream.value.addTrack(videoTrack)
             }
+            // Add video track on all peer connections and renegotiate
+            for (const peer of Object.values(remotePeers.value)) {
+                const s = peer.pc.addTrack(videoTrack, localStream.value!)
+                setVideoBitrate(s, 1500)
+                // Send new offer so remote side gets ontrack event
+                try {
+                    const offer = await peer.pc.createOffer()
+                    await peer.pc.setLocalDescription(offer)
+                    sendSignaling('rtc.offer', { target: peer.userId, sdp: offer })
+                } catch (e: any) {
+                    if (e.name !== 'InvalidStateError') console.warn('[RTC] video renegotiation failed:', e.message)
+                }
+            }
+            // Set flag AFTER addTrack so v-if in VoiceCallView re-evaluates with track present
             videoEnabled.value = true
-            // Replace/add video sender on all peer connections
-            Object.values(remotePeers.value).forEach(peer => {
-                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-                if (sender) { sender.replaceTrack(videoTrack); setVideoBitrate(sender, 1500) }
-                else { const s = peer.pc.addTrack(videoTrack, localStream.value!); setVideoBitrate(s, 1500) }
-            })
         } catch { /* camera denied */ }
     }
 
@@ -820,7 +852,7 @@ export const useRtcStore = defineStore('rtc', () => {
 
     async function toggleScreenShare() {
         if (screenSharing.value) {
-            stopScreenShare()
+            await stopScreenShare()
             return
         }
         // Screen share and video are mutually exclusive
@@ -833,8 +865,6 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         try {
             const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
-            screenSharing.value = true
-            screenShareVersion.value++
             // Keep audio from existing stream, replace video with screen
             const screenTrack = screenStream.getVideoTracks()[0]
             if (!screenTrack) return
@@ -849,18 +879,28 @@ export const useRtcStore = defineStore('rtc', () => {
             } else {
                 localStream.value = screenStream
             }
-            // Replace video track on all peer connections
+            // Add video track on all peer connections and renegotiate
             for (const peer of Object.values(remotePeers.value)) {
-                const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-                if (sender) { sender.replaceTrack(screenTrack); setVideoBitrate(sender, 4000) }
-                else { const s = peer.pc.addTrack(screenTrack, localStream.value!); setVideoBitrate(s, 4000) }
+                const s = peer.pc.addTrack(screenTrack, localStream.value!)
+                setVideoBitrate(s, 4000)
+                // Send new offer so remote side gets ontrack event
+                try {
+                    const offer = await peer.pc.createOffer()
+                    await peer.pc.setLocalDescription(offer)
+                    sendSignaling('rtc.offer', { target: peer.userId, sdp: offer })
+                } catch (e: any) {
+                    if (e.name !== 'InvalidStateError') console.warn('[RTC] screen renegotiation failed:', e.message)
+                }
             }
+            // Set flag AFTER addTrack so v-if in VoiceCallView re-evaluates with track present
+            screenSharing.value = true
+            screenShareVersion.value++
             // Stop sharing when user clicks browser's "Stop sharing" button
             screenTrack.onended = () => stopScreenShare()
         } catch (e) { /* user cancelled */ }
     }
 
-    function stopScreenShare() {
+    async function stopScreenShare() {
         screenSharing.value = false
         screenShareVersion.value++
         // Stop and remove old video tracks from local stream
@@ -868,10 +908,24 @@ export const useRtcStore = defineStore('rtc', () => {
             t.stop()
             localStream.value?.removeTrack(t)
         })
-        // Remove video track from all senders
+        // Remove video sender from all peer connections and renegotiate
         for (const peer of Object.values(remotePeers.value)) {
             const sender = peer.pc.getSenders().find(s => s.track?.kind === 'video')
-            if (sender) sender.replaceTrack(null)
+            if (sender) {
+                peer.pc.removeTrack(sender)
+                // Renegotiate so remote side knows track was removed
+                try {
+                    const offer = await peer.pc.createOffer()
+                    await peer.pc.setLocalDescription(offer)
+                    sendSignaling('rtc.offer', { target: peer.userId, sdp: offer })
+                } catch (e: any) {
+                    if (e.name !== 'InvalidStateError') console.warn('[RTC] screen remove renegotiation failed:', e.message)
+                }
+                // Notify remote side that video stopped (for forwarding cleanup)
+                if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
+                    peer.pingChannel.send(JSON.stringify({ type: 'video-off' }))
+                }
+            }
         }
     }
 
