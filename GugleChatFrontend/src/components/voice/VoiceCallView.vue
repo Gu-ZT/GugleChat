@@ -88,7 +88,7 @@ function getStream(uid: number): MediaStream | null {
           <video autoplay playsinline :srcObject="rtcStore.remotePeers[u.userId].stream" />
         </div>
         <div v-else class="vc-avatar"
-             :class="{ speaking: isSpeaking(u.userId) }"
+             :class="{ speaking: isSpeaking(u.userId), muted: u.userId === authStore.user?.id ? !rtcStore.audioEnabled : rtcStore.mutedPeers[u.userId] }"
              :style="{ background: avatarColor(u.userId) }">
           {{ u.username?.charAt(0).toUpperCase() }}
         </div>
@@ -153,6 +153,7 @@ function getStream(uid: number): MediaStream | null {
   font-size: 22px; font-weight: 600; color: #fff;
 }
 .vc-avatar.speaking { box-shadow: 0 0 0 3px rgb(var(--green-6)); }
+.vc-avatar.muted { box-shadow: 0 0 0 3px rgb(var(--red-6)); }
 .vc-name { font-size: 13px; color: var(--color-text-1); font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .vc-badges { display: flex; gap: 4px; }
 .vc-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; }
