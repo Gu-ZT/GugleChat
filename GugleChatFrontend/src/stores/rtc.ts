@@ -517,9 +517,16 @@ export const useRtcStore = defineStore('rtc', () => {
         })
     }
 
-    function toggleNoiseFx() {
+    async function toggleNoiseFx() {
         noiseFxEnabled.value = !noiseFxEnabled.value
         localStorage.setItem('guglechat_noise_fx', String(noiseFxEnabled.value))
+        if (noiseFxEnabled.value && rnnoiseEnabled.value) {
+            await initRnnoise()
+            if (monitoring.value) { stopMonitor(); await startMonitor() }
+        } else if (!noiseFxEnabled.value) {
+            destroyRnnoise()
+            if (monitoring.value) { stopMonitor(); await startMonitor() }
+        }
         refreshAudioStream()
     }
 
