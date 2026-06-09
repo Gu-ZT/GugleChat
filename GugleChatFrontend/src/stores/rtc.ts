@@ -63,6 +63,9 @@ export const useRtcStore = defineStore('rtc', () => {
     const audioInputs = ref<AudioDevice[]>([])
     const currentAudioDevice = ref('')
     const micVolume = ref(Number(localStorage.getItem('guglechat_mic_volume') || 100))
+    const speakerVolume = ref(Number(localStorage.getItem('guglechat_speaker_volume') || 100))
+    const audioOutputs = ref<AudioDevice[]>([])
+    const currentOutputDevice = ref('')
     let audioCtx: AudioContext | null = null
     let vadTimer: number | null = null
     let monitorGain: GainNode | null = null
@@ -74,6 +77,43 @@ export const useRtcStore = defineStore('rtc', () => {
         localStorage.setItem('guglechat_mic_volume', String(v))
         if (micGainNode) micGainNode.gain.value = v / 100
         applyMicGain()
+    }
+
+    function setSpeakerVolume(v: number) {
+        speakerVolume.value = v
+        localStorage.setItem('guglechat_speaker_volume', String(v))
+        Object.values(remotePeers.value).forEach(p => {
+            if (p.audioEl) p.audioEl.volume = Math.min(v / 100, 1)
+        })
+    }
+
+    async function enumerateAudioOutputs() {
+        if (!navigator.mediaDevices?.enumerateDevices) return
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices()
+            audioOutputs.value = devices
+                .filter(d => d.kind === 'audiooutput' && d.deviceId)
+                .map(d => ({ deviceId: d.deviceId, label: d.label || `Speaker ${d.deviceId.slice(0, 8)}` }))
+            const saved = localStorage.getItem('guglechat_output_device')
+            if (saved && audioOutputs.value.some(d => d.deviceId === saved)) {
+                currentOutputDevice.value = saved
+            } else if (audioOutputs.value.length > 0) {
+                currentOutputDevice.value = audioOutputs.value[0].deviceId
+            }
+        } catch {}
+    }
+
+    function switchAudioOutput(deviceId: string) {
+        currentOutputDevice.value = deviceId
+        localStorage.setItem('guglechat_output_device', deviceId)
+        Object.values(remotePeers.value).forEach(p => {
+            if (p.audioEl && typeof (p.audioEl as any).setSinkId === 'function') {
+                ;(p.audioEl as any).setSinkId(deviceId).catch((e: any) =>
+                    console.warn('[RTC] setSinkId failed:', e.message))
+            } else if (p.audioEl) {
+                console.warn('[RTC] setSinkId not supported in this browser')
+            }
+        })
     }
 
     function applyMicGain() {
@@ -205,6 +245,10 @@ export const useRtcStore = defineStore('rtc', () => {
                 audio.autoplay = true
                 audio.controls = false
                 audio.muted = !speakerEnabled.value
+                audio.volume = Math.min(speakerVolume.value / 100, 1)
+                if (currentOutputDevice.value && 'setSinkId' in audio) {
+                    ;(audio as any).setSinkId(currentOutputDevice.value).catch(() => {})
+                }
                 audio.style.display = 'none'
                 document.body.appendChild(audio)
                 audio.play().catch(() => { /* autoplay policy — audio resumes on user interaction */ })
@@ -304,6 +348,8 @@ export const useRtcStore = defineStore('rtc', () => {
         }
         videoEnabled.value = false
         audioEnabled.value = true
+        // Re-enumerate after mic permission granted (outputs need it)
+        enumerateAudioOutputs()
         // NAT type detection + bandwidth → composite quality score
         let natScore: number
         if ((window as any).__TAURI__) {
@@ -638,6 +684,8 @@ export const useRtcStore = defineStore('rtc', () => {
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         speakerEnabled, toggleSpeaker,
         micVolume, setMicVolume,
+        speakerVolume, setSpeakerVolume,
+        audioOutputs, currentOutputDevice, enumerateAudioOutputs, switchAudioOutput,
         audioInputs, currentAudioDevice, enumerateAudioDevices, switchAudioDevice,
         setSendSignaling: (fn: typeof sendSignaling) => {
             sendSignaling = fn

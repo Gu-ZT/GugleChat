@@ -46,7 +46,7 @@ function onDragEnd() {
   dragging.value = false
 }
 
-onMounted(() => { document.addEventListener('mousemove', onDrag); rtcStore.enumerateAudioDevices() })
+onMounted(() => { document.addEventListener('mousemove', onDrag); rtcStore.enumerateAudioDevices(); rtcStore.enumerateAudioOutputs() })
 onMounted(() => document.addEventListener('mouseup', onDragEnd))
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDrag);
@@ -233,14 +233,29 @@ function handleLogout() {
                       @change="rtcStore.setMicVolume($event as number)" style="width:100%"/>
           </template>
         </a-popover>
-        <a-button type="text" size="mini"
-                  :class="{ 'mic-muted': !rtcStore.speakerEnabled }"
-                  @click="rtcStore.toggleSpeaker()" title="Mute Speaker">
-          <template #icon>
-            <IconSound v-if="rtcStore.speakerEnabled"/>
-            <IconMute v-else/>
+        <a-popover trigger="hover" position="top">
+          <a-button type="text" size="mini"
+                    :class="{ 'mic-muted': !rtcStore.speakerEnabled }"
+                    @click="rtcStore.toggleSpeaker()" title="Mute Speaker">
+            <template #icon>
+              <IconSound v-if="rtcStore.speakerEnabled"/>
+              <IconMute v-else/>
+            </template>
+          </a-button>
+          <template #content>
+            <div class="device-title">Audio Output</div>
+            <div class="device-list">
+              <div v-for="d in rtcStore.audioOutputs" :key="d.deviceId"
+                   class="device-item"
+                   :class="{ active: d.deviceId === rtcStore.currentOutputDevice }"
+                   @click="rtcStore.switchAudioOutput(d.deviceId)">{{ d.label }}
+              </div>
+            </div>
+            <div class="device-title" style="margin-top:8px">Speaker Volume</div>
+            <a-slider :model-value="rtcStore.speakerVolume" :min="0" :max="150" :step="1"
+                      @change="rtcStore.setSpeakerVolume($event as number)" style="width:100%"/>
           </template>
-        </a-button>
+        </a-popover>
         <a-button type="text" size="mini" @click="emit('openSettings')" title="Settings">
           <template #icon><IconSettings/></template>
         </a-button>
