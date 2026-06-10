@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import DOMPurify from 'dompurify'
 
 const props = defineProps<{ content: string }>()
 
@@ -9,16 +10,14 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function sanitize(html: string): string {
-  // Strip dangerous tags and event handlers
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
-    .replace(/<object[\s\S]*?<\/object>/gi, '')
-    .replace(/<embed[\s\S]*?>/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/on\w+\s*=\s*[^\s>]+/gi, '')
-    .replace(/javascript\s*:/gi, '')
+function isSafeUrl(href: string): boolean {
+  try {
+    const url = new URL(href)
+    return url.protocol === 'https:' || url.protocol === 'http:'
+  } catch {
+    // relative URLs are safe
+    return !href.trimStart().match(/^[a-z][a-z0-9+\-.]*:/i)
+  }
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -37,17 +36,27 @@ const defaultLinkRender = md.renderer.rules.link_open || function (tokens, idx, 
 }
 md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   const href = tokens[idx].attrGet('href') || ''
-  const ext = href.split('.').pop()?.toLowerCase() || ''
+  if (!isSafeUrl(href)) return defaultLinkRender(tokens, idx, options, env, self)
+  const safeHref = encodeURI(decodeURI(href))
+  const ext = href.split('?')[0].split('.').pop()?.toLowerCase() || ''
   if (['mp4', 'webm', 'mov'].includes(ext)) {
-    return `<video controls style="max-width:100%;border-radius:6px;max-height:360px" src="${href}">`
+    return `<video controls style="max-width:100%;border-radius:6px;max-height:360px" src="${escapeHtml(safeHref)}">`
   }
   if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus', 'weba'].includes(ext)) {
-    return `<audio controls style="width:100%" src="${href}">`
+    return `<audio controls style="width:100%" src="${escapeHtml(safeHref)}">`
   }
   return defaultLinkRender(tokens, idx, options, env, self)
 }
 
-const rendered = computed(() => sanitize(md.render(props.content)))
+const rendered = computed(() =>
+  DOMPurify.sanitize(md.render(props.content), {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'del', 'code', 'pre', 'blockquote',
+      'ul', 'ol', 'li', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'video', 'audio', 'source'],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'controls', 'style', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+  })
+)
 </script>
 
 <template>

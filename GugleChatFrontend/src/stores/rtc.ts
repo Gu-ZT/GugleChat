@@ -197,8 +197,6 @@ export const useRtcStore = defineStore('rtc', () => {
             {urls: 'stun:stun.ideasip.com:3478'},
             {urls: 'stun:stun.schlund.de:3478'},
             {urls: 'stun:stun.voiparound.com:3478'},
-            {urls: 'stun:stun.voipbuster.com:3478'},
-            {urls: 'stun:stun.voipstunt.com:3478'},
             {urls: 'stun:stun1.voiceeclipse.net:3478'},
         ]
         const turnUrl = localStorage.getItem('guglechat_turn_url')
@@ -603,8 +601,16 @@ export const useRtcStore = defineStore('rtc', () => {
         sendSignaling('rtc.join/' + roomId, { quality })
     }
 
+    function setHostId(id: number | null) { hostId.value = id }
+    function setForcedHostId(id: number) { forcedHostId.value = id }
+    function setShowVoiceChat(show: boolean) { showVoiceChat.value = show }
+
     function endCall() {
-        Object.values(remotePeers.value).forEach(p => p.pc.close())
+        Object.values(remotePeers.value).forEach(p => {
+            p.audioEl?.pause()
+            p.audioEl?.remove()
+            p.pc.close()
+        })
         Object.keys(remoteVadTimers).forEach(uid => stopRemoteVad(Number(uid)))
         remotePeers.value = {}
         relayLatencies.value = {}
@@ -1152,7 +1158,8 @@ export const useRtcStore = defineStore('rtc', () => {
     return {
         localStream, remotePeers, relayLatencies, peerConnStates, broadcastSpeaking, mutedPeers, activeRoomId, videoEnabled, audioEnabled, voiceUsersByChannel, showVoiceChat,
         addRemotePeer, setRemoteStream, removeRemotePeer, clearAllPeers, createPeerConnection,
-        hostId, forcedHostId, startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing, screenShareVersion,
+        hostId, forcedHostId, setHostId, setForcedHostId, setShowVoiceChat,
+        startCall, endCall, toggleVideo, toggleAudio, toggleScreenShare, screenSharing, screenShareVersion,
         speaking, remoteSpeaking, monitoring, setMonitoring,
         setVoiceUsers, getVoiceUsers, clearVoiceUsers,
         speakerEnabled, toggleSpeaker,

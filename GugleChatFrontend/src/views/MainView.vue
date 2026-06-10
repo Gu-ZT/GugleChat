@@ -37,7 +37,7 @@ onMounted(async () => {
   for (const ch of channelStore.channels) {
     if (ch.type === 'VOICE' && (ch as any).voiceUsers?.length) {
       rtcStore.setVoiceUsers(ch.id, (ch as any).voiceUsers)
-      if ((ch as any).hostId) rtcStore.hostId = (ch as any).hostId
+      if ((ch as any).hostId) rtcStore.setHostId((ch as any).hostId)
     }
   }
   wsStore.connect()

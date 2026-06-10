@@ -27,7 +27,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchMe() {
     if (!token.value) return
     try { user.value = (await authService.getMe()).data }
-    catch { logout() }
+    catch (err: any) {
+      // Only log out on explicit 401 — not on transient network failures
+      if (err?.response?.status === 401) logout()
+    }
   }
 
   function logout() {

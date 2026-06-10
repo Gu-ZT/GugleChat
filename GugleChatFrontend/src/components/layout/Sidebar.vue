@@ -96,7 +96,7 @@ function handleChannelClick(c: { id: number; type: ChannelType }) {
       clickTimer = null
       wsStore.subscribeToChannel(c.id)
       rtcStore.startCall(c.id)
-      rtcStore.showVoiceChat = false // show voice participants
+      rtcStore.setShowVoiceChat(false) // show voice participants
       // Don't change currentChannel — let the VoiceCallView show instead
       return
     }
@@ -105,7 +105,7 @@ function handleChannelClick(c: { id: number; type: ChannelType }) {
     }, 300)
     // Single click: if already in this voice room → show participants; else → text chat
     if (rtcStore.activeRoomId === c.id) {
-      rtcStore.showVoiceChat = false // show VoiceCallView for this room
+      rtcStore.setShowVoiceChat(false) // show VoiceCallView for this room
       channelStore.selectChannel(c.id)
       wsStore.subscribeToChannel(c.id)
       return
@@ -122,7 +122,7 @@ function selectTextChannel(id: number) {
 
 function openVoiceChat(c: { id: number; type: ChannelType }) {
   selectTextChannel(c.id)
-  rtcStore.showVoiceChat = true
+  rtcStore.setShowVoiceChat(true)
 }
 
 function handleLogout() {

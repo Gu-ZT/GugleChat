@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { Client } from '@stomp/stompjs'
+import { Client, type StompSubscription } from '@stomp/stompjs'
 import { useMessageStore } from './message'
 import { useRtcStore } from './rtc'
 import type { Message } from '@/types'
@@ -13,6 +13,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
   let rtcHandler: RtcHandler | null = null
   const serverLatency = ref(-1)
   let pingTimer: ReturnType<typeof setInterval> | null = null
+  // Track active channel subscriptions to prevent duplicates and enable cleanup
+  const channelSubs = new Map<number, StompSubscription>()
 
   function startPing() {
     stopPing()
@@ -32,6 +34,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function connect() {
     const token = localStorage.getItem('token')
     if (!token) return
+    // Prevent double-connect: deactivate existing client first
+    if (client) { client.deactivate(); client = null; connected.value = false }
     const backend = localStorage.getItem('guglechat_backend_url') || ''
     const wsBase = backend ? backend.replace(/^http/, 'ws') : `ws://${window.location.host}`
     client = new Client({
@@ -42,14 +46,18 @@ export const useWebSocketStore = defineStore('websocket', () => {
       onConnect: () => {
         connected.value = true
         startPing()
+        // Re-subscribe to all active channels after reconnect
+        const activeChannels = [...channelSubs.keys()]
+        channelSubs.clear()
+        for (const id of activeChannels) subscribeToChannel(id)
         // Global voice users — no per-channel subscription needed
         client?.subscribe('/topic/voice-users', (msg) => {
           const body = JSON.parse(msg.body) as Record<string, unknown>
           if (body.type === 'voice-users') {
             const rtc = useRtcStore()
             rtc.setVoiceUsers(body.roomId as number, (body.users as any[]) || [])
-            if (body.hostId && rtc.activeRoomId === body.roomId) rtc.hostId = body.hostId as number
-            rtc.forcedHostId = (body.forcedHostId as number) || 0
+            if (body.hostId && rtc.activeRoomId === body.roomId) rtc.setHostId(body.hostId as number)
+            rtc.setForcedHostId((body.forcedHostId as number) || 0)
           }
         })
         // Heartbeat — handle server ping and pong echo
@@ -94,19 +102,22 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   function subscribeToChannel(channelId: number) {
-    if (!client) return
+    if (!client?.connected) return
+    // Prevent duplicate subscriptions for the same channel
+    if (channelSubs.has(channelId)) return
     const msgStore = useMessageStore()
-    client.subscribe(`/topic/channel.${channelId}`, (message) => {
+    const sub = client.subscribe(`/topic/channel.${channelId}`, (message) => {
       const body = JSON.parse(message.body)
       if (body.type === 'DELETE') msgStore.removeMessage(body.messageId)
       else if (body.type === 'voice-users') {
         console.log('[WS] voice-users for channel', channelId, body.users)
         const rtc = useRtcStore()
         rtc.setVoiceUsers(channelId, (body.users as { userId: number; username: string; quality: number }[]) || [])
-        if (body.hostId && rtc.activeRoomId === channelId) rtc.hostId = body.hostId as number
+        if (body.hostId && rtc.activeRoomId === channelId) rtc.setHostId(body.hostId as number)
       }
       else msgStore.addMessage(body as Message)
     })
+    channelSubs.set(channelId, sub)
   }
 
   function sendMessage(channelId: number, content: string) {
@@ -122,6 +133,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   function disconnect() {
+    channelSubs.clear()
     client?.deactivate(); client = null; connected.value = false
   }
 

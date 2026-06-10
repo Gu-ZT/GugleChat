@@ -92,12 +92,13 @@ function removeRemoteSource(trackId: string) {
   const info = trackSources.get(trackId)
   if (!info) return
   trackSources.delete(trackId)
-  // Disconnect from all peer mixes
-  for (const [, entry] of peerMixes) {
-    entry.sourceNodes.forEach(n => {
-      if (n.context === mixCtx) n.disconnect()
-    })
-  }
+  // Disconnect only the gain nodes that belong to this specific track
+  // We need to find which gain nodes were created for this source.
+  // Since we can't directly trace back, we rebuild each peer's mix without this source.
+  // The simplest correct fix: remove nodes whose sourceUid matches info.sourceUid
+  // and whose context matches mixCtx — but we don't have per-track node refs.
+  // Instead, disconnect the source node itself (all its outputs), then reconnect remaining.
+  info.node.disconnect()
 }
 
 function removePeerMix(uid: number) {
@@ -111,8 +112,8 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   const type = body.type as string
   const myId = authStore.user?.id || 0
   if (type === 'room-users') {
-    if (body.hostId) rtcStore.hostId = body.hostId as number
-    rtcStore.forcedHostId = (body.forcedHostId as number) || 0
+    if (body.hostId) rtcStore.setHostId(body.hostId as number)
+    rtcStore.setForcedHostId((body.forcedHostId as number) || 0)
     const users = (body.users as { userId: number; username: string }[]) || []
     const host = body.hostId as number
     if (host === myId) {
@@ -124,7 +125,7 @@ wsStore.onRtcMessage(async (body: Record<string, unknown>) => {
   } else if (type === 'user-joined') {
     const uid = body.userId as number
     const uname = (body.username as string) || 'User' + uid
-    if (body.hostId) rtcStore.hostId = body.hostId as number
+    if (body.hostId) rtcStore.setHostId(body.hostId as number)
     // Only host sends offers to new users
     if (body.hostId === myId) {
       await createOffer(uid, uname)
