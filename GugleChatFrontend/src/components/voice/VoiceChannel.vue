@@ -19,8 +19,8 @@ const peerMixes = new Map<number, MixEntry>()
 const trackSources = new Map<string, { node: AudioNode; sourceUid: number }>() // track.id -> source info
 
 // Video forwarding: host relays video from one peer to all others
-// Key: "fromUserId→toUserId", Value: { sender, track }
-const videoForwardSenders = new Map<string, { sender: RTCRtpSender; track: MediaStreamTrack }>()
+// Key: "fromUserId→toUserId", Value: { sender, track, stream }
+const videoForwardSenders = new Map<string, { sender: RTCRtpSender; track: MediaStreamTrack; stream: MediaStream }>()
 
 function ensureMixer() {
   if (mixCtx) return
@@ -173,7 +173,7 @@ async function createOffer(targetId: number, username: string) {
         if (videoForwardSenders.has(fwdKey)) continue // already forwarding to this peer
         const fwdStream = new MediaStream([track])
         const sender = peer.pc.addTrack(track, fwdStream)
-        videoForwardSenders.set(fwdKey, { sender, track })
+        videoForwardSenders.set(fwdKey, { sender, track, stream: fwdStream })
         // Renegotiate
         try {
           const offer = await peer.pc.createOffer()
@@ -230,29 +230,32 @@ async function forwardVideoToOthers(fromUserId: number, videoTrack: MediaStreamT
     if (targetId === fromUserId) continue // Don't send back to source
     const key = `${fromUserId}→${targetId}`
     const existing = videoForwardSenders.get(key)
-    // Always create a new MediaStream so the remote end gets a fresh streamId to pair with video-fwd
-    const fwdStream = new MediaStream([videoTrack])
 
+    let fwdStream: MediaStream
     if (existing) {
-      // Replace the track in the existing sender and update our record
+      // Reuse the SAME stream instance — stream.id must stay stable so the remote
+      // end can re-pair via the video-fwd DataChannel message.
+      fwdStream = existing.stream
       existing.sender.replaceTrack(videoTrack)
-      videoForwardSenders.set(key, { sender: existing.sender, track: videoTrack })
+      videoForwardSenders.set(key, { sender: existing.sender, track: videoTrack, stream: fwdStream })
+      // replaceTrack doesn't trigger ontrack on the remote end, so we only need to
+      // renegotiate if the codec params changed — skip renegotiation here and just
+      // re-send the video-fwd message so the remote re-pairs with the same streamId.
     } else {
+      fwdStream = new MediaStream([videoTrack])
       const sender = peer.pc.addTrack(videoTrack, fwdStream)
-      videoForwardSenders.set(key, { sender, track: videoTrack })
+      videoForwardSenders.set(key, { sender, track: videoTrack, stream: fwdStream })
+      // First-time: renegotiate so the remote side gets an ontrack event
+      try {
+        const offer = await peer.pc.createOffer()
+        await peer.pc.setLocalDescription(offer)
+        wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
+      } catch (e: any) {
+        if (e.name !== 'InvalidStateError') console.warn('[fwd] renegotiation failed:', e.message)
+      }
     }
 
-    // Renegotiate this peer's PC
-    try {
-      const offer = await peer.pc.createOffer()
-      await peer.pc.setLocalDescription(offer)
-      wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
-    } catch (e: any) {
-      if (e.name !== 'InvalidStateError') console.warn('[fwd] renegotiation failed:', e.message)
-    }
-
-    // Always send video-fwd (both first time and on replaceTrack) so the remote end
-    // can re-pair the new streamId with the correct fromUserId
+    // Always send video-fwd so the remote end (re-)pairs streamId → fromUserId
     if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
       peer.pingChannel.send(JSON.stringify({
         type: 'video-fwd',

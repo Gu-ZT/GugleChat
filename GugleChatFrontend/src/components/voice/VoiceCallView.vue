@@ -102,8 +102,8 @@ function getStream(uid: number): MediaStream | null {
           <span v-if="u.userId === rtcStore.hostId" class="vc-badge host">👑 Host</span>
         </div>
         <div v-if="rtcStore.remotePeers[u.userId]" class="vc-status">
-          <span class="vc-dot" :style="{ background: connStateColor(rtcStore.remotePeers[u.userId].iceState) }" />
-          {{ connStateLabel(rtcStore.remotePeers[u.userId].iceState) }}
+          <span class="vc-dot" :style="{ background: connStateColor(rtcStore.remotePeers[u.userId].connState) }" />
+          {{ connStateLabel(rtcStore.remotePeers[u.userId].connState) }}
         </div>
         <div v-else-if="u.userId !== authStore.user?.id && rtcStore.peerConnStates[u.userId]" class="vc-status">
           <span class="vc-dot" :style="{ background: connStateColor(rtcStore.peerConnStates[u.userId]) }" />

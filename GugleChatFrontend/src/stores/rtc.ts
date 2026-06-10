@@ -22,10 +22,11 @@ export interface RemotePeer {
 export function connStateLabel(state: string): string {
     switch (state) {
         case 'connected': case 'completed': return 'P2P connected'
-        case 'checking': return 'Connecting...'
-        case 'new': case 'connecting': return 'Signaling...'
+        case 'checking': case 'connecting': return 'Connecting...'
+        case 'new': return 'Signaling...'
         case 'failed': return 'Connection failed'
-        case 'disconnected': return 'Disconnected'
+        case 'disconnected': return 'Reconnecting...'
+        case 'closed': return 'Closed'
         default: return state
     }
 }
@@ -34,7 +35,8 @@ export function connStateColor(state: string): string {
     switch (state) {
         case 'connected': case 'completed': return 'rgb(var(--green-6))'
         case 'checking': case 'new': case 'connecting': return 'rgb(var(--orange-6))'
-        case 'failed': case 'disconnected': return 'rgb(var(--red-6))'
+        case 'disconnected': return 'rgb(var(--orange-6))'
+        case 'failed': case 'closed': return 'rgb(var(--red-6))'
         default: return 'var(--color-text-3)'
     }
 }
