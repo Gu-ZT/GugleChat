@@ -1,4 +1,10 @@
+<div align="center" style="align-content: center">
+
+<img src="./guglechat-icon.png" alt="guglechat-icon" style="width: 128px; height: 128px">
+
 # GugleChat
+
+</div>
 
 Real-time communication platform supporting text (Markdown) / voice / video / screen sharing. Web, desktop, and mobile (Android +
 HarmonyOS).

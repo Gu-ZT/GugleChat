@@ -1,4 +1,10 @@
+<div align="center" style="align-content: center">
+
+<img src="./guglechat-icon.png" alt="guglechat-icon" style="width: 128px; height: 128px">
+
 # GugleChat
+
+</div>
 
 实时通讯平台，支持文字（Markdown）/ 语音 / 视频 / 屏幕共享聊天。覆盖网页端、桌面客户端、移动端（Android + 鸿蒙）。
 
