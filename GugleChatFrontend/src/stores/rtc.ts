@@ -268,6 +268,8 @@ export const useRtcStore = defineStore('rtc', () => {
         relayLatencies.value = {}
         broadcastSpeaking.value = {}
         peerConnStates.value = {}
+        pendingFwdStreams.clear()
+        pendingFwdUsers.clear()
     }
 
     function setForwardedVideo(senderId: number, fromUserId: number, stream: MediaStream) {
@@ -293,7 +295,7 @@ export const useRtcStore = defineStore('rtc', () => {
         remotePeers.value = {...remotePeers.value}
     }
 
-    function createPeerConnection(targetId: number, username: string): RTCPeerConnection {
+    function createPeerConnection(targetId: number, username: string, isHostConnection = false): RTCPeerConnection {
         const pc = Object.assign(new RTCPeerConnection({iceServers: getIceServers()}), {_gugleInitPing: undefined as any})
         addRemotePeer(targetId, username, pc)
 
@@ -317,7 +319,13 @@ export const useRtcStore = defineStore('rtc', () => {
                     pendingFwdUsers.delete(streamId)
                     return
                 }
-                // Track arrived first: store for later pairing with video-fwd message
+                if (isHostConnection) {
+                    // Host receives video from a NonHost peer — VoiceChannel.vue handles forwarding.
+                    // Do NOT call setRemoteStream here; the track event listener in VoiceChannel.vue
+                    // takes care of addRemoteSource + forwardVideoToOthers.
+                    return
+                }
+                // NonHost: track arrived before video-fwd message — store for later pairing
                 pendingFwdStreams.set(streamId, stream)
                 // Fallback: if no video-fwd arrives within 2s, treat as sender's own video
                 setTimeout(() => {
@@ -615,6 +623,8 @@ export const useRtcStore = defineStore('rtc', () => {
         remotePeers.value = {}
         relayLatencies.value = {}
         broadcastSpeaking.value = {}
+        pendingFwdStreams.clear()
+        pendingFwdUsers.clear()
         if (activeRoomId.value) clearVoiceUsers(activeRoomId.value)
         stopVad()
         if (localStream.value) {
