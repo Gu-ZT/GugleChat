@@ -1,10 +1,7 @@
 package dev.dubhe.gugle.chat.auth.model;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import dev.dubhe.gugle.chat.common.enums.UserStatus;
+import com.baomidou.mybatisplus.annotation.*;
+import dev.dubhe.gugle.chat.common.enums.UserRole;
 
 import java.time.LocalDateTime;
 
@@ -30,13 +27,21 @@ public class User {
     private String nickname;
 
     @TableField
-    private UserStatus status = UserStatus.OFFLINE;
-
-    @TableField("last_seen_at")
-    private LocalDateTime lastSeenAt;
+    private UserRole role = UserRole.USER;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
+
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
+
+    @Version
+    @TableField
+    private Integer version;
+
+    @TableLogic
+    @TableField
+    private Integer flag;
 
     public User() {}
 
@@ -58,10 +63,14 @@ public class User {
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     public String getNickname() { return nickname; }
     public void setNickname(String nickname) { this.nickname = nickname; }
-    public UserStatus getStatus() { return status; }
-    public void setStatus(UserStatus status) { this.status = status; }
-    public LocalDateTime getLastSeenAt() { return lastSeenAt; }
-    public void setLastSeenAt(LocalDateTime lastSeenAt) { this.lastSeenAt = lastSeenAt; }
+    public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public Integer getFlag() { return flag; }
+    public void setFlag(Integer flag) { this.flag = flag; }
 }

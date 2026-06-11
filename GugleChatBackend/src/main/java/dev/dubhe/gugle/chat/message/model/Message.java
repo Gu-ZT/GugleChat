@@ -1,9 +1,6 @@
 package dev.dubhe.gugle.chat.message.model;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import dev.dubhe.gugle.chat.common.enums.MessageType;
 
 import java.time.LocalDateTime;
@@ -35,6 +32,17 @@ public class Message {
     @TableField("created_at")
     private LocalDateTime createdAt;
 
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
+
+    @Version
+    @TableField
+    private Integer version;
+
+    @TableLogic
+    @TableField
+    private Integer flag;
+
     public Message() {}
     public Message(Long channelId, Long userId, String content, MessageType type) {
         this.channelId = channelId;
@@ -56,4 +64,10 @@ public class Message {
     public void setEditedAt(LocalDateTime editedAt) { this.editedAt = editedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public Integer getFlag() { return flag; }
+    public void setFlag(Integer flag) { this.flag = flag; }
 }

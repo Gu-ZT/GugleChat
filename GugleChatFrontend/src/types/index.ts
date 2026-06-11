@@ -1,5 +1,6 @@
 export interface UserInfo {
   id: number; username: string; email: string; nickname: string; avatarUrl: string | null;
+  role: string;
 }
 export interface AuthResponse {
   token: string; tokenType: string; user: UserInfo;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, onUnmounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useAuthStore} from '@/stores/auth'
 import {useChannelStore} from '@/stores/channel'
@@ -58,13 +58,21 @@ onUnmounted(() => {
 
 const showCreate = ref(false)
 const contextMenu = ref({show: false, x: 0, y: 0})
+const ctxChannelId = ref<number | null>(null)
 const newName = ref('')
 const newType = ref<ChannelType>('TEXT')
 const creating = ref(false)
+const deleting = ref(false)
 let clickTimer: ReturnType<typeof setTimeout> | null = null
 
-function onContextMenu(e: MouseEvent) {
+function onContextMenu(e: MouseEvent, channelId?: number) {
+  ctxChannelId.value = channelId ?? null
   contextMenu.value = {show: true, x: e.clientX, y: e.clientY}
+}
+
+function onChannelCtxMenu(e: MouseEvent, channelId: number) {
+  e.stopPropagation()
+  onContextMenu(e, channelId)
 }
 
 function closeContextMenu() {
@@ -87,6 +95,24 @@ async function handleCreate() {
     creating.value = false
   }
 }
+
+async function handleDeleteChannel() {
+  if (!ctxChannelId.value) return
+  deleting.value = true
+  try {
+    await channelStore.deleteChannel(ctxChannelId.value)
+  } finally { deleting.value = false; closeContextMenu() }
+}
+
+const channelToDelete = computed(() => {
+  if (!ctxChannelId.value) return null
+  return channelStore.channels.find(c => c.id === ctxChannelId.value) || null
+})
+
+const canDeleteChannel = computed(() => {
+  if (!channelToDelete.value || !authStore.user) return false
+  return channelToDelete.value.createdBy === authStore.user.id
+})
 
 function handleChannelClick(c: { id: number; type: ChannelType }) {
   if (c.type === 'VOICE') {
@@ -140,14 +166,15 @@ function handleLogout() {
     </div>
 
     <!-- Channel list -->
-    <div class="channel-section" @contextmenu.prevent="onContextMenu">
+    <div class="channel-section" @contextmenu.prevent="onContextMenu($event)">
       <template v-for="c in channelStore.channels" :key="c.id">
         <div class="channel-item"
              :class="{
                active: c.id === channelStore.currentChannelId,
                'voice-joined': rtcStore.activeRoomId === c.id
              }"
-             @click="handleChannelClick(c)">
+             @click="handleChannelClick(c)"
+             @contextmenu.prevent="onChannelCtxMenu($event, c.id)">
           <IconVoice v-if="c.type === 'VOICE'" class="ch-icon voice-icon"/>
           <IconMessage v-else class="ch-icon"/>
           <span class="ch-name">{{ c.name }}</span>
@@ -303,6 +330,9 @@ function handleLogout() {
       <div class="ctx-item" @click="closeContextMenu(); showCreate = true">
         <IconPlus class="ctx-icon"/>
         <span>Create Channel</span>
+      </div>
+      <div v-if="canDeleteChannel" class="ctx-item ctx-item-danger" @click="handleDeleteChannel">
+        <span>Delete Channel</span>
       </div>
     </div>
 
@@ -629,6 +659,9 @@ function handleLogout() {
 }
 
 .ctx-icon { font-size: 14px; }
+
+.ctx-item-danger { color: rgb(var(--red-6)); }
+.ctx-item-danger:hover { background: rgb(var(--red-6)); color: #fff; }
 
 /* Bottom user panel */
 .user-panel {

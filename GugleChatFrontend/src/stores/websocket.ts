@@ -128,6 +128,14 @@ export const useWebSocketStore = defineStore('websocket', () => {
     })
   }
 
+  function deleteMessage(messageId: number) {
+    if (!client?.connected) return
+    client.publish({
+      destination: `/app/chat.delete/${messageId}`,
+      body: '{}',
+    })
+  }
+
   function isConnected(): boolean {
     return client?.connected ?? false
   }
@@ -137,5 +145,5 @@ export const useWebSocketStore = defineStore('websocket', () => {
     client?.deactivate(); client = null; connected.value = false
   }
 
-  return { connected, serverLatency, connect, subscribeToChannel, sendMessage, disconnect, isConnected, onRtcMessage, sendSignaling }
+  return { connected, serverLatency, connect, subscribeToChannel, sendMessage, deleteMessage, disconnect, isConnected, onRtcMessage, sendSignaling }
 })

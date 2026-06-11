@@ -6,6 +6,8 @@ import MarkdownRenderer from './MarkdownRenderer.vue'
 import dayjs from 'dayjs'
 
 const props = defineProps<{ message: Message }>()
+const emit = defineEmits<{ (e: 'ctxmenu', ev: MouseEvent, msg: Message): void }>()
+
 const auth = useAuthStore()
 const isMine = computed(() => props.message.userId === auth.user?.id)
 const time = computed(() => dayjs(props.message.createdAt).format('HH:mm'))
@@ -15,10 +17,14 @@ const avatarColor = computed(() => {
   for (const c of props.message.username) hash = c.charCodeAt(0) + ((hash << 5) - hash)
   return avatarColors[Math.abs(hash) % avatarColors.length]
 })
+
+function onContextMenu(e: MouseEvent) {
+  emit('ctxmenu', e, props.message)
+}
 </script>
 
 <template>
-  <div class="msg">
+  <div class="msg" @contextmenu.prevent="onContextMenu">
     <div class="msg-avatar" :style="{ background: avatarColor }">{{ message.username.charAt(0).toUpperCase() }}</div>
     <div class="msg-body">
       <div class="msg-header">

@@ -9,4 +9,5 @@ export const channelService = {
   getMembers(channelId: number) { return api.get(`/channels/${channelId}/members`) },
   addMember(channelId: number, userId: number) { return api.post(`/channels/${channelId}/members`, { userId }) },
   removeMember(channelId: number, userId: number) { return api.delete(`/channels/${channelId}/members/${userId}`) },
+  deleteChannel(id: number) { return api.delete(`/channels/${id}`) },
 }

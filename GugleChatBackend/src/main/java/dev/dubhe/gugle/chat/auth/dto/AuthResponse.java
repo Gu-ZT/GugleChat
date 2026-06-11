@@ -20,13 +20,15 @@ public class AuthResponse {
         private String email;
         private String nickname;
         private String avatarUrl;
+        private String role;
 
-        public UserInfo(Long id, String username, String email, String nickname, String avatarUrl) {
+        public UserInfo(Long id, String username, String email, String nickname, String avatarUrl, String role) {
             this.id = id;
             this.username = username;
             this.email = email;
             this.nickname = nickname;
             this.avatarUrl = avatarUrl;
+            this.role = role;
         }
 
         public Long getId() { return id; }
@@ -34,5 +36,6 @@ public class AuthResponse {
         public String getEmail() { return email; }
         public String getNickname() { return nickname; }
         public String getAvatarUrl() { return avatarUrl; }
+        public String getRole() { return role; }
     }
 }

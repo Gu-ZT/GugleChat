@@ -4,10 +4,11 @@
 -- ============================================
 
 -- 测试用户 (password = "123456")
-INSERT INTO users (username, email, password_hash, nickname, status) VALUES
-('alice',   'alice@example.com',   '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjqQBk.TmSvLzq/r6GdOoTqLqC/k6W', 'Alice',   'OFFLINE'),
-('bob',     'bob@example.com',     '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjqQBk.TmSvLzq/r6GdOoTqLqC/k6W', 'Bob',     'OFFLINE'),
-('charlie', 'charlie@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjqQBk.TmSvLzq/r6GdOoTqLqC/k6W', 'Charlie', 'OFFLINE')
+-- alice = SUPER_ADMIN, bob & charlie = USER
+INSERT INTO users (username, email, password_hash, nickname, role) VALUES
+('alice',   'alice@example.com',   '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjqQBk.TmSvLzq/r6GdOoTqLqC/k6W', 'Alice',   'SUPER_ADMIN'),
+('bob',     'bob@example.com',     '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjqQBk.TmSvLzq/r6GdOoTqLqC/k6W', 'Bob',     'USER'),
+('charlie', 'charlie@example.com', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjqQBk.TmSvLzq/r6GdOoTqLqC/k6W', 'Charlie', 'USER')
 ON CONFLICT (username) DO NOTHING;
 
 -- 测试频道

@@ -1,7 +1,6 @@
 package dev.dubhe.gugle.chat.channel.model;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
@@ -19,6 +18,10 @@ public interface ChannelMemberMapper extends BaseMapper<ChannelMember> {
                 .eq(ChannelMember::getUserId, userId)) > 0;
     }
 
-    @Delete("DELETE FROM channel_members WHERE channel_id = #{channelId} AND user_id = #{userId}")
-    void deleteByChannelIdAndUserId(Long channelId, Long userId);
+    /** 逻辑删除：将 flag 置为 1（由 MyBatis-Plus 全局逻辑删除自动处理） */
+    default void deleteByChannelIdAndUserId(Long channelId, Long userId) {
+        delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ChannelMember>()
+                .eq(ChannelMember::getChannelId, channelId)
+                .eq(ChannelMember::getUserId, userId));
+    }
 }

@@ -1,8 +1,12 @@
 package dev.dubhe.gugle.chat.message.service;
 
 import dev.dubhe.gugle.chat.auth.model.UserMapper;
+import dev.dubhe.gugle.chat.channel.model.ChannelMember;
+import dev.dubhe.gugle.chat.channel.model.ChannelMemberMapper;
 import dev.dubhe.gugle.chat.channel.service.ChannelService;
+import dev.dubhe.gugle.chat.common.enums.MemberRole;
 import dev.dubhe.gugle.chat.common.enums.MessageType;
+import dev.dubhe.gugle.chat.common.enums.UserRole;
 import dev.dubhe.gugle.chat.common.exception.BusinessException;
 import dev.dubhe.gugle.chat.message.dto.MessageResponse;
 import dev.dubhe.gugle.chat.message.dto.SendMessageRequest;
@@ -21,12 +25,14 @@ public class MessageService {
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
     private final ChannelService channelService;
+    private final ChannelMemberMapper memberMapper;
 
     public MessageService(MessageMapper messageMapper, UserMapper userMapper,
-                          ChannelService channelService) {
+                          ChannelService channelService, ChannelMemberMapper memberMapper) {
         this.messageMapper = messageMapper;
         this.userMapper = userMapper;
         this.channelService = channelService;
+        this.memberMapper = memberMapper;
     }
 
     public MessageResponse sendMessage(Long channelId, Long userId, SendMessageRequest req) {
@@ -61,8 +67,18 @@ public class MessageService {
     public void deleteMessage(Long messageId, Long userId) {
         Message msg = messageMapper.selectById(messageId);
         if (msg == null) throw new BusinessException("Message not found");
-        if (!msg.getUserId().equals(userId))
-            throw new BusinessException(403, "Can only delete your own messages");
+        if (!msg.getUserId().equals(userId)) {
+            // SUPER_ADMIN can delete any message
+            var user = userMapper.selectById(userId);
+            if (user != null && user.getRole() == UserRole.SUPER_ADMIN) {
+                messageMapper.deleteById(messageId);
+                return;
+            }
+            // Channel admins (OWNER/ADMIN) can delete messages in their channel
+            ChannelMember member = memberMapper.findByChannelIdAndUserId(msg.getChannelId(), userId);
+            if (member == null || member.getRole() == MemberRole.MEMBER)
+                throw new BusinessException(403, "Can only delete your own messages");
+        }
         messageMapper.deleteById(messageId);
     }
 

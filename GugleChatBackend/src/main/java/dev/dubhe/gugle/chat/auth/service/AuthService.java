@@ -6,6 +6,7 @@ import dev.dubhe.gugle.chat.auth.dto.RegisterRequest;
 import dev.dubhe.gugle.chat.auth.model.User;
 import dev.dubhe.gugle.chat.auth.model.UserMapper;
 import dev.dubhe.gugle.chat.common.exception.BusinessException;
+import dev.dubhe.gugle.chat.common.service.OnlineStatusService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,13 +18,16 @@ public class AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final OnlineStatusService onlineStatusService;
 
     public AuthService(UserMapper userMapper,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       OnlineStatusService onlineStatusService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.onlineStatusService = onlineStatusService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -38,9 +42,10 @@ public class AuthService {
                 passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getUsername());
         user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername());
+        String token = jwtService.generateToken(user.getId(), user.getUsername(), user.getRole().name());
         return new AuthResponse(token, toUserInfo(user));
     }
 
@@ -53,7 +58,12 @@ public class AuthService {
             throw new BusinessException("Invalid username or password");
         }
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername());
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+
+        onlineStatusService.heartbeat(user.getId(), user.getUsername());
+
+        String token = jwtService.generateToken(user.getId(), user.getUsername(), user.getRole().name());
         return new AuthResponse(token, toUserInfo(user));
     }
 
@@ -66,6 +76,6 @@ public class AuthService {
     private AuthResponse.UserInfo toUserInfo(User user) {
         return new AuthResponse.UserInfo(
                 user.getId(), user.getUsername(), user.getEmail(),
-                user.getNickname(), user.getAvatarUrl());
+                user.getNickname(), user.getAvatarUrl(), user.getRole().name());
     }
 }

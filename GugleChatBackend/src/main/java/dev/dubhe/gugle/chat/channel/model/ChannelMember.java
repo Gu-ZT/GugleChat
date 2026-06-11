@@ -1,9 +1,6 @@
 package dev.dubhe.gugle.chat.channel.model;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import dev.dubhe.gugle.chat.common.enums.MemberRole;
 
 import java.time.LocalDateTime;
@@ -26,6 +23,20 @@ public class ChannelMember {
     @TableField("joined_at")
     private LocalDateTime joinedAt;
 
+    @TableField("created_at")
+    private LocalDateTime createdAt;
+
+    @TableField("updated_at")
+    private LocalDateTime updatedAt;
+
+    @Version
+    @TableField
+    private Integer version;
+
+    @TableLogic
+    @TableField
+    private Integer flag;
+
     public ChannelMember() {}
     public ChannelMember(Long channelId, Long userId, MemberRole role) {
         this.channelId = channelId;
@@ -40,4 +51,12 @@ public class ChannelMember {
     public void setRole(MemberRole role) { this.role = role; }
     public LocalDateTime getJoinedAt() { return joinedAt; }
     public void setJoinedAt(LocalDateTime joinedAt) { this.joinedAt = joinedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public Integer getFlag() { return flag; }
+    public void setFlag(Integer flag) { this.flag = flag; }
 }

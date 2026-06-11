@@ -65,9 +65,9 @@ mybatis-plus:
       column-format: null
       table-underline: true
       capital-mode: false
-      logic-delete-field: null
-      logic-delete-value: true
-      logic-not-delete-value: false
+      logic-delete-field: flag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
       insert-strategy: not_empty
       update-strategy: not_empty
       where-strategy: not_empty

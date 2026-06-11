@@ -23,5 +23,13 @@ export const useChannelStore = defineStore('channel', () => {
 
   function selectChannel(id: number) { currentChannelId.value = id }
 
-  return { channels, currentChannelId, currentChannel, fetchChannels, createChannel, selectChannel }
+  async function deleteChannel(id: number) {
+    await channelService.deleteChannel(id)
+    channels.value = channels.value.filter(c => c.id !== id)
+    if (currentChannelId.value === id) {
+      currentChannelId.value = channels.value.length > 0 ? channels.value[0].id : null
+    }
+  }
+
+  return { channels, currentChannelId, currentChannel, fetchChannels, createChannel, selectChannel, deleteChannel }
 })
