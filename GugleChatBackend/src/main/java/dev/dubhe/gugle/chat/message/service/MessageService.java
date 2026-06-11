@@ -21,7 +21,7 @@ import java.util.List;
 @Service
 public class MessageService {
 
-    private static final int PAGE_SIZE = 50;
+    private static final int PAGE_SIZE = 15;
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
     private final ChannelService channelService;
