@@ -148,54 +148,80 @@ async function createOffer(targetId: number, username: string) {
   const pc = rtcStore.createPeerConnection(targetId, username, true)
   ;(pc as any)._gugleInitPing?.()
   const myId = authStore.user?.id || 0
-  // Auto-apply mixed track when connection becomes stable
+
   pc.addEventListener('connectionstatechange', async () => {
     if (rtcStore.hostId !== myId) return
-    if (pc.connectionState === 'connected') {
-      if (mixCtx) {
-        ensurePeerMix(targetId)
-        applyMixedTrack(targetId)
+    if (pc.connectionState !== 'connected') return
+
+    if (mixCtx) {
+      ensurePeerMix(targetId)
+      applyMixedTrack(targetId)
+    }
+
+    const peer = rtcStore.remotePeers[targetId] as { pc: RTCPeerConnection; pingChannel: RTCDataChannel | null } | undefined
+    if (!peer) return
+
+    // Collect all active forwarded video tracks that should reach this peer.
+    // Source 1: videoForwardSenders (tracks already being forwarded to at least one other peer)
+    // Source 2: receivers on other peers' PCs (covers "NonHost opened video before Host joined")
+    const activeVideos = new Map<number, MediaStreamTrack>()
+
+    // From already-known forwards
+    for (const [key, val] of videoForwardSenders) {
+      const fromId = Number(key.split('→')[0])
+      if (fromId !== targetId && val.track.readyState !== 'ended') {
+        activeVideos.set(fromId, val.track)
       }
-      // Bug 3 fix: replay existing video forwards to newly joined peer
-      const peer = rtcStore.remotePeers[targetId] as { pc: RTCPeerConnection; pingChannel: RTCDataChannel | null } | undefined
-      if (!peer) return
-      const existingForwards: { fromUserId: number; track: MediaStreamTrack }[] = []
-      for (const [key, val] of videoForwardSenders) {
-        // key format: "fromUserId→toUserId" — find all forwards not yet targeting this new peer
-        const [fromStr] = key.split('→')
-        const fromId = Number(fromStr)
-        if (fromId !== targetId) {
-          existingForwards.push({ fromUserId: fromId, track: val.track })
-        }
-      }
-      for (const { fromUserId, track } of existingForwards) {
-        const fwdKey = `${fromUserId}→${targetId}`
-        if (videoForwardSenders.has(fwdKey)) continue // already forwarding to this peer
-        const fwdStream = new MediaStream([track])
-        const sender = peer.pc.addTrack(track, fwdStream)
-        videoForwardSenders.set(fwdKey, { sender, track, stream: fwdStream })
-        // Renegotiate
-        try {
-          const offer = await peer.pc.createOffer()
-          await peer.pc.setLocalDescription(offer)
-          wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
-        } catch (e: any) {
-          if (e.name !== 'InvalidStateError') console.warn('[fwd-replay] renegotiation failed:', e.message)
-        }
-        // Send video-fwd mapping — wait for DataChannel to be open
-        const sendFwd = () => {
-          if (peer.pingChannel?.readyState === 'open') {
-            peer.pingChannel.send(JSON.stringify({ type: 'video-fwd', fromUserId, streamId: fwdStream.id }))
-          }
-        }
-        if (peer.pingChannel?.readyState === 'open') {
-          sendFwd()
-        } else if (peer.pingChannel) {
-          peer.pingChannel.addEventListener('open', sendFwd, { once: true })
+    }
+
+    // From receivers on other Host↔NonHost PCs (catches video opened before Host joined)
+    const allPeers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection; pingChannel: RTCDataChannel | null }>
+    for (const [uidStr, otherPeer] of Object.entries(allPeers)) {
+      const fromId = Number(uidStr)
+      if (fromId === targetId) continue
+      if (activeVideos.has(fromId)) continue
+      for (const receiver of otherPeer.pc.getReceivers()) {
+        if (receiver.track.kind === 'video' && receiver.track.readyState !== 'ended') {
+          activeVideos.set(fromId, receiver.track)
+          break
         }
       }
     }
+
+    if (activeVideos.size === 0) return
+
+    for (const [fromUserId, track] of activeVideos) {
+      const fwdKey = `${fromUserId}→${targetId}`
+      if (videoForwardSenders.has(fwdKey)) continue
+      const fwdStream = new MediaStream([track])
+      const sender = peer.pc.addTrack(track, fwdStream)
+      videoForwardSenders.set(fwdKey, { sender, track, stream: fwdStream })
+    }
+
+    // One renegotiation for all addTrack calls above
+    try {
+      const replayOffer = await peer.pc.createOffer()
+      await peer.pc.setLocalDescription(replayOffer)
+      wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: replayOffer, username: authStore.user?.username || 'Me' })
+    } catch (e: any) {
+      if (e.name !== 'InvalidStateError') console.warn('[fwd-replay] renegotiation failed:', e.message)
+    }
+
+    const sendAllFwd = () => {
+      for (const [fromUserId] of activeVideos) {
+        const entry = videoForwardSenders.get(`${fromUserId}→${targetId}`)
+        if (entry && peer.pingChannel?.readyState === 'open') {
+          peer.pingChannel.send(JSON.stringify({ type: 'video-fwd', fromUserId, streamId: entry.stream.id }))
+        }
+      }
+    }
+    if (peer.pingChannel?.readyState === 'open') {
+      sendAllFwd()
+    } else if (peer.pingChannel) {
+      peer.pingChannel.addEventListener('open', sendAllFwd, { once: true })
+    }
   })
+
   // Track event: mix remote audio, forward remote video
   pc.addEventListener('track', async (event: RTCTrackEvent) => {
     if (rtcStore.hostId !== myId) return
@@ -207,19 +233,15 @@ async function createOffer(targetId: number, username: string) {
       if (track.kind === 'audio') {
         addRemoteSource(targetId, track)
       } else if (track.kind === 'video') {
-        // Forward this video to all other peers
         await forwardVideoToOthers(targetId, track)
       }
     }
   })
-  // If mixer already active, create mix for this new peer
-  if (mixCtx) {
-    ensurePeerMix(targetId)
-  }
+
+  if (mixCtx) ensurePeerMix(targetId)
   const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true })
   await pc.setLocalDescription(offer)
-  const myName = authStore.user?.username || 'Me'
-  wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: myName })
+  wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
 }
 
 /** Host: forward a video track from one peer to all other peers */
@@ -227,50 +249,49 @@ async function forwardVideoToOthers(fromUserId: number, videoTrack: MediaStreamT
   const peers = rtcStore.remotePeers as Record<number, { pc: RTCPeerConnection; pingChannel: RTCDataChannel | null }>
   for (const [targetIdStr, peer] of Object.entries(peers)) {
     const targetId = Number(targetIdStr)
-    if (targetId === fromUserId) continue // Don't send back to source
+    if (targetId === fromUserId) continue
+
     const key = `${fromUserId}→${targetId}`
     const existing = videoForwardSenders.get(key)
 
-    let fwdStream: MediaStream
+    // Remove old sender first (no renegotiate yet — combine with addTrack below)
     if (existing) {
-      // Reuse the SAME stream instance — stream.id must stay stable so the remote
-      // end can re-pair via the video-fwd DataChannel message.
-      fwdStream = existing.stream
-      existing.sender.replaceTrack(videoTrack)
-      videoForwardSenders.set(key, { sender: existing.sender, track: videoTrack, stream: fwdStream })
-      // replaceTrack doesn't trigger ontrack on the remote end, so we only need to
-      // renegotiate if the codec params changed — skip renegotiation here and just
-      // re-send the video-fwd message so the remote re-pairs with the same streamId.
-    } else {
-      fwdStream = new MediaStream([videoTrack])
-      const sender = peer.pc.addTrack(videoTrack, fwdStream)
-      videoForwardSenders.set(key, { sender, track: videoTrack, stream: fwdStream })
-      // First-time: renegotiate so the remote side gets an ontrack event
-      try {
-        const offer = await peer.pc.createOffer()
-        await peer.pc.setLocalDescription(offer)
-        wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
-      } catch (e: any) {
-        if (e.name !== 'InvalidStateError') console.warn('[fwd] renegotiation failed:', e.message)
-      }
+      try { peer.pc.removeTrack(existing.sender) } catch {}
+      videoForwardSenders.delete(key)
     }
 
-    // Always send video-fwd so the remote end (re-)pairs streamId → fromUserId
-    if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
-      peer.pingChannel.send(JSON.stringify({
-        type: 'video-fwd',
-        fromUserId,
-        streamId: fwdStream.id,
-      }))
+    const fwdStream = new MediaStream([videoTrack])
+    const sender = peer.pc.addTrack(videoTrack, fwdStream)
+    videoForwardSenders.set(key, { sender, track: videoTrack, stream: fwdStream })
+
+    // Single renegotiation covering both the removeTrack and addTrack above
+    try {
+      const offer = await peer.pc.createOffer()
+      await peer.pc.setLocalDescription(offer)
+      wsStore.sendSignaling('rtc.offer', { target: targetId, sdp: offer, username: authStore.user?.username || 'Me' })
+    } catch (e: any) {
+      if (e.name !== 'InvalidStateError') console.warn('[fwd] renegotiation failed:', e.message)
+    }
+
+    // Send video-fwd so remote pairs the new streamId → fromUserId
+    const sendFwd = () => {
+      if (peer.pingChannel?.readyState === 'open') {
+        peer.pingChannel.send(JSON.stringify({ type: 'video-fwd', fromUserId, streamId: fwdStream.id }))
+      }
+    }
+    if (peer.pingChannel?.readyState === 'open') {
+      sendFwd()
+    } else if (peer.pingChannel) {
+      peer.pingChannel.addEventListener('open', sendFwd, { once: true })
     }
 
     // Cleanup when source track ends
     videoTrack.addEventListener('ended', () => {
       const s = videoForwardSenders.get(key)
-      if (s) {
-        s.sender.replaceTrack(null)
+      if (s?.stream === fwdStream) {
+        try { peer.pc.removeTrack(s.sender) } catch {}
         videoForwardSenders.delete(key)
-        if (peer.pingChannel && peer.pingChannel.readyState === 'open') {
+        if (peer.pingChannel?.readyState === 'open') {
           peer.pingChannel.send(JSON.stringify({ type: 'video-fwd-end', fromUserId }))
         }
       }
@@ -281,11 +302,41 @@ async function forwardVideoToOthers(fromUserId: number, videoTrack: MediaStreamT
 async function handleOffer(body: Record<string, unknown>) {
   const senderId = body.userId as number
   const senderName = (body.username as string) || 'User' + senderId
+  const myId = authStore.user?.id || 0
+  const iAmHost = rtcStore.hostId === myId
   try {
     // Reuse existing PC for renegotiation, or create new one
     let pc = rtcStore.remotePeers[senderId]?.pc
-    if (!pc || pc.signalingState === 'closed') {
-      pc = rtcStore.createPeerConnection(senderId, senderName)
+    const isNewPc = !pc || pc.signalingState === 'closed'
+    if (isNewPc) {
+      pc = rtcStore.createPeerConnection(senderId, senderName, iAmHost)
+      ;(pc as any)._gugleInitPing?.()
+
+      if (iAmHost) {
+        // Host as answerer: wire up the same audio-mix and video-forward track listener as createOffer
+        if (mixCtx) ensurePeerMix(senderId)
+        pc.addEventListener('connectionstatechange', () => {
+          if (pc.connectionState !== 'connected') return
+          if (mixCtx) {
+            ensurePeerMix(senderId)
+            applyMixedTrack(senderId)
+          }
+        })
+        pc.addEventListener('track', async (event: RTCTrackEvent) => {
+          if (rtcStore.hostId !== myId) return
+          const stream = event.streams[0]
+          if (!stream) return
+          ensureMixer()
+          ensurePeerMix(senderId)
+          for (const track of stream.getTracks()) {
+            if (track.kind === 'audio') {
+              addRemoteSource(senderId, track)
+            } else if (track.kind === 'video') {
+              await forwardVideoToOthers(senderId, track)
+            }
+          }
+        })
+      }
     }
     await pc.setRemoteDescription(new RTCSessionDescription(body.sdp as RTCSessionDescriptionInit))
     // Flush buffered ICE

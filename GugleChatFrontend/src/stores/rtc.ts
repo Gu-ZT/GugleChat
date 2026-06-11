@@ -410,9 +410,9 @@ export const useRtcStore = defineStore('rtc', () => {
           const states: Record<number, string> = {}
           // Host itself is always 'connected'
           states[myId] = 'connected'
-          // Add all remote peers' states
+          // Add all remote peers' connection states (use connState, not iceState)
           for (const [uid, p] of Object.entries(remotePeers.value)) {
-            states[Number(uid)] = p.iceState
+            states[Number(uid)] = p.connState
           }
           // Also add voice users without peer connections as 'new'
           const roomId = activeRoomId.value

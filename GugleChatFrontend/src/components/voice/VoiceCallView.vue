@@ -20,7 +20,15 @@ function toggleFocus(uid: number) {
 
 function hasVideo(uid: number): boolean {
   if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) && (rtcStore.localStream?.getVideoTracks().length ?? 0) > 0
-  return (rtcStore.remotePeers[uid]?.stream?.getVideoTracks().length ?? 0) > 0
+  if ((rtcStore.remotePeers[uid]?.stream?.getVideoTracks().length ?? 0) > 0) return true
+  if (rtcStore.remotePeers[rtcStore.hostId || 0]?.forwardedVideos?.has(uid)) return true
+  return false
+}
+function getStream(uid: number): MediaStream | null {
+  if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) ? rtcStore.localStream : null
+  const direct = rtcStore.remotePeers[uid]?.stream
+  if (direct?.getVideoTracks().length) return direct
+  return rtcStore.remotePeers[rtcStore.hostId || 0]?.forwardedVideos?.get(uid) ?? null
 }
 function latencyColor(ms: number): string {
   if (ms < 0) return 'var(--color-text-3)'
@@ -38,11 +46,6 @@ function peerLatency(uid: number): number {
   const relay = rtcStore.relayLatencies[uid]
   if (relay !== undefined && relay >= 0) return relay
   return -1
-}
-function getStream(uid: number): MediaStream | null {
-  if (uid === authStore.user?.id) return (rtcStore.videoEnabled || rtcStore.screenSharing) ? rtcStore.localStream : null
-  const s = rtcStore.remotePeers[uid]?.stream
-  return s?.getVideoTracks().length ? s : null
 }
 </script>
 
