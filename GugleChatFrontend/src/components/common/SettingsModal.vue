@@ -65,7 +65,7 @@ function handleLogout() {
       <a-divider>Voice & Video</a-divider>
       <a-form-item label="NAT Type" help="Override auto-detection. Worse type between manual & detected is used.">
         <a-select :model-value="settingsStore.natOverride" placeholder="Auto" allow-clear
-                  @update:model-value="settingsStore.setNatOverride" :style="{ width: '100%' }">
+                  @update="settingsStore.setNatOverride" :style="{ width: '100%' }">
           <a-option value="">Auto (detect)</a-option>
           <a-option value="1">NAT1 — Open / Full Cone</a-option>
           <a-option value="2">NAT2 — Restricted Cone</a-option>
