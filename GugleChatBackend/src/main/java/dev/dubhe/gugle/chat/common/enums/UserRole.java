@@ -5,5 +5,6 @@ package dev.dubhe.gugle.chat.common.enums;
  */
 public enum UserRole {
     SUPER_ADMIN,
+    ADMIN,
     USER
 }

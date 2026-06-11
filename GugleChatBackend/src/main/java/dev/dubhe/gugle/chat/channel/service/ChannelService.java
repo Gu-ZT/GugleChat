@@ -1,9 +1,11 @@
 package dev.dubhe.gugle.chat.channel.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import dev.dubhe.gugle.chat.auth.model.UserMapper;
 import dev.dubhe.gugle.chat.channel.dto.*;
 import dev.dubhe.gugle.chat.channel.model.*;
 import dev.dubhe.gugle.chat.common.enums.MemberRole;
+import dev.dubhe.gugle.chat.common.enums.UserRole;
 import dev.dubhe.gugle.chat.common.exception.BusinessException;
 import dev.dubhe.gugle.chat.signaling.service.RoomService;
 import org.springframework.stereotype.Service;
@@ -18,12 +20,14 @@ public class ChannelService {
     private final ChannelMapper channelMapper;
     private final ChannelMemberMapper memberMapper;
     private final RoomService roomService;
+    private final UserMapper userMapper;
 
     public ChannelService(ChannelMapper channelMapper, ChannelMemberMapper memberMapper,
-                          RoomService roomService) {
+                          RoomService roomService, UserMapper userMapper) {
         this.channelMapper = channelMapper;
         this.memberMapper = memberMapper;
         this.roomService = roomService;
+        this.userMapper = userMapper;
     }
 
     public List<ChannelResponse> getAllChannels(Long userId) {
@@ -84,8 +88,12 @@ public class ChannelService {
     public void deleteChannel(Long channelId, Long userId) {
         Channel c = channelMapper.selectById(channelId);
         if (c == null) throw new BusinessException("Channel not found");
-        if (!c.getCreatedBy().equals(userId))
-            throw new BusinessException(403, "Only owner can delete");
+        if (!c.getCreatedBy().equals(userId)) {
+            // Global admins can delete any channel
+            var user = userMapper.selectById(userId);
+            if (user == null || (user.getRole() != UserRole.SUPER_ADMIN && user.getRole() != UserRole.ADMIN))
+                throw new BusinessException(403, "Only owner or global admin can delete");
+        }
         memberMapper.delete(new LambdaQueryWrapper<ChannelMember>()
                 .eq(ChannelMember::getChannelId, channelId));
         channelMapper.deleteById(channelId);

@@ -68,9 +68,9 @@ public class MessageService {
         Message msg = messageMapper.selectById(messageId);
         if (msg == null) throw new BusinessException("Message not found");
         if (!msg.getUserId().equals(userId)) {
-            // SUPER_ADMIN can delete any message
+            // Global admins can delete any message
             var user = userMapper.selectById(userId);
-            if (user != null && user.getRole() == UserRole.SUPER_ADMIN) {
+            if (user != null && (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN)) {
                 messageMapper.deleteById(messageId);
                 return;
             }
